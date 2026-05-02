@@ -167,6 +167,9 @@ This index contains all the links to the project's documentation.
 **Backend Documentation**
 [Understanding the Backend and getting started](./backend/README.md)
 
+**Database Schema**
+[Firestore + Cloud Storage schema — source of truth](./backend/docs/DB_SCHEMA.md)
+
 **Contributions and Violations**
 1. [Contribution Guidelines](./docs/CONTRIBUTION_GUIDELINES.md)
 2. [Architecture Violations](./docs/ARCHITECTURE_VIOLATIONS.md)
