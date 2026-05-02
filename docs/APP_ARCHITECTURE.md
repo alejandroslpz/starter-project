@@ -52,7 +52,7 @@ together form a *clean folder* and they satisfy a set of very restrictive
 conditions. The violations to this restrictions are technically explained [here](./ARCHITECTURE_VIOLATIONS.md)
 ### Clean Folder Requirements
 1. A clean folder must follow a clean structure which is divided into 3 layers (represented as
-folders in the database)
+folders in the codebase)
 A. Data Layer
 B. Domain Layer (Business Logic)
 C. Presentation Layer (UI)
