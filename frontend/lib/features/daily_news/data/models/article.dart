@@ -27,6 +27,8 @@ class ArticleModel extends ArticleEntity {
     );
   }
 
+  factory ArticleModel.fromRawData(Map<String, dynamic> map) => ArticleModel.fromJson(map);
+
   factory ArticleModel.fromEntity(ArticleEntity entity) {
     return ArticleModel(
       id: entity.id,
