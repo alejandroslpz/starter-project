@@ -18,7 +18,7 @@ class ArticleRepositoryImpl implements ArticleRepository {
   ArticleRepositoryImpl(this._newsApiService, this._appDatabase);
 
   @override
-  Future<DataState<List<ArticleModel>>> getNewsArticles() async {
+  Future<DataState<List<ArticleEntity>>> getNewsArticles() async {
     try {
       final httpResponse = await _newsApiService.getNewsArticles(
         apiKey: newsAPIKey,
@@ -27,7 +27,9 @@ class ArticleRepositoryImpl implements ArticleRepository {
       );
 
       if (httpResponse.response.statusCode == HttpStatus.ok) {
-        return DataSuccess(httpResponse.data);
+        final entities =
+            httpResponse.data.map((model) => model.toEntity()).toList();
+        return DataSuccess(entities);
       } else {
         return DataFailed(NetworkException(
           message: httpResponse.response.statusMessage ?? 'HTTP error',
@@ -50,8 +52,9 @@ class ArticleRepositoryImpl implements ArticleRepository {
   }
 
   @override
-  Future<List<ArticleModel>> getSavedArticles() async {
-    return _appDatabase.articleDAO.getArticles();
+  Future<List<ArticleEntity>> getSavedArticles() async {
+    final models = await _appDatabase.articleDAO.getArticles();
+    return models.map((model) => model.toEntity()).toList();
   }
 
   @override

@@ -55,7 +55,7 @@ void main() {
   ];
 
   group('ArticleRepositoryImpl.getNewsArticles', () {
-    test('returns DataSuccess when API responds with 200', () async {
+    test('returns DataSuccess with entities on 200', () async {
       final response = Response<List<ArticleModel>>(
         requestOptions: RequestOptions(path: '/top-headlines'),
         statusCode: 200,
@@ -71,8 +71,10 @@ void main() {
 
       final result = await repository.getNewsArticles();
 
-      expect(result, isA<DataSuccess<List<ArticleModel>>>());
-      expect(result.data, equals(testModels));
+      expect(result, isA<DataSuccess<List<ArticleEntity>>>());
+      expect(result.data, isA<List<ArticleEntity>>());
+      expect(result.data, hasLength(testModels.length));
+      expect(result.data!.first.title, equals(testModels.first.title));
     });
 
     test('returns DataFailed with NetworkException when DioError is thrown', () async {
@@ -90,7 +92,7 @@ void main() {
 
       final result = await repository.getNewsArticles();
 
-      expect(result, isA<DataFailed<List<ArticleModel>>>());
+      expect(result, isA<DataFailed<List<ArticleEntity>>>());
       expect(result.error, isA<NetworkException>());
     });
 
@@ -113,7 +115,7 @@ void main() {
 
       final result = await repository.getNewsArticles();
 
-      expect(result, isA<DataFailed<List<ArticleModel>>>());
+      expect(result, isA<DataFailed<List<ArticleEntity>>>());
       expect(result.error, isA<NetworkException>());
       expect(result.error?.code, equals('500'));
     });
@@ -128,18 +130,20 @@ void main() {
 
       final result = await repository.getNewsArticles();
 
-      expect(result, isA<DataFailed<List<ArticleModel>>>());
+      expect(result, isA<DataFailed<List<ArticleEntity>>>());
       expect(result.error, isA<UnknownException>());
     });
   });
 
   group('ArticleRepositoryImpl local CRUD', () {
-    test('getSavedArticles delegates to articleDAO.getArticles', () async {
+    test('getSavedArticles returns entities from DAO', () async {
       when(() => mockDao.getArticles()).thenAnswer((_) async => testModels);
 
       final result = await repository.getSavedArticles();
 
-      expect(result, equals(testModels));
+      expect(result, isA<List<ArticleEntity>>());
+      expect(result, hasLength(testModels.length));
+      expect(result.first.title, equals(testModels.first.title));
       verify(() => mockDao.getArticles()).called(1);
     });
 
