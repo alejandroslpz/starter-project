@@ -3,80 +3,29 @@ import 'package:news_app_clean_architecture/features/auth/presentation/widgets/a
 
 void main() {
   group('AuthValidators', () {
-    // -------------------------------------------------------------------
-    // validateEmail
-    // -------------------------------------------------------------------
-    group('validateEmail', () {
-      test('returns null for valid email', () {
-        expect(AuthValidators.validateEmail('user@example.com'), isNull);
-      });
-
-      test('returns error for empty string', () {
-        expect(AuthValidators.validateEmail(''), isNotNull);
-      });
-
-      test('returns error for null', () {
-        expect(AuthValidators.validateEmail(null), isNotNull);
-      });
-
-      test('returns error for missing @', () {
-        expect(AuthValidators.validateEmail('notanemail'), isNotNull);
-      });
-
-      test('returns error for missing domain', () {
-        expect(AuthValidators.validateEmail('user@'), isNotNull);
-      });
-
-      test('accepts subdomain email', () {
-        expect(AuthValidators.validateEmail('user@mail.example.co.uk'), isNull);
-      });
+    test('validateEmail accepts well-formed addresses, rejects others', () {
+      expect(AuthValidators.validateEmail('user@example.com'), isNull);
+      expect(AuthValidators.validateEmail('user@mail.example.co.uk'), isNull);
+      expect(AuthValidators.validateEmail(''), isNotNull);
+      expect(AuthValidators.validateEmail(null), isNotNull);
+      expect(AuthValidators.validateEmail('notanemail'), isNotNull);
+      expect(AuthValidators.validateEmail('user@'), isNotNull);
     });
 
-    // -------------------------------------------------------------------
-    // validatePassword
-    // -------------------------------------------------------------------
-    group('validatePassword', () {
-      test('returns null for 8+ character password', () {
-        expect(AuthValidators.validatePassword('12345678'), isNull);
-      });
-
-      test('returns error for empty string', () {
-        expect(AuthValidators.validatePassword(''), isNotNull);
-      });
-
-      test('returns error for null', () {
-        expect(AuthValidators.validatePassword(null), isNotNull);
-      });
-
-      test('returns error for password shorter than 8 chars', () {
-        expect(AuthValidators.validatePassword('1234567'), isNotNull);
-      });
-
-      test('error message mentions 8 characters', () {
-        final error = AuthValidators.validatePassword('short');
-        expect(error, contains('8'));
-      });
+    test('validatePassword requires at least 8 characters', () {
+      expect(AuthValidators.validatePassword('12345678'), isNull);
+      expect(AuthValidators.validatePassword('1234567'), isNotNull);
+      expect(AuthValidators.validatePassword(''), isNotNull);
+      expect(AuthValidators.validatePassword(null), isNotNull);
+      // Error copy mentions the minimum so users know what to fix.
+      expect(AuthValidators.validatePassword('short'), contains('8'));
     });
 
-    // -------------------------------------------------------------------
-    // validateDisplayName
-    // -------------------------------------------------------------------
-    group('validateDisplayName', () {
-      test('returns null for 2+ character name', () {
-        expect(AuthValidators.validateDisplayName('Al'), isNull);
-      });
-
-      test('returns error for empty string', () {
-        expect(AuthValidators.validateDisplayName(''), isNotNull);
-      });
-
-      test('returns error for null', () {
-        expect(AuthValidators.validateDisplayName(null), isNotNull);
-      });
-
-      test('returns error for single character name', () {
-        expect(AuthValidators.validateDisplayName('A'), isNotNull);
-      });
+    test('validateDisplayName requires at least 2 characters', () {
+      expect(AuthValidators.validateDisplayName('Al'), isNull);
+      expect(AuthValidators.validateDisplayName('A'), isNotNull);
+      expect(AuthValidators.validateDisplayName(''), isNotNull);
+      expect(AuthValidators.validateDisplayName(null), isNotNull);
     });
   });
 }
