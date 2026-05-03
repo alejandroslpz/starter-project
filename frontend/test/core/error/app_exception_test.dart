@@ -9,6 +9,7 @@ void main() {
         const FirestoreException(message: 'denied', code: 'permission-denied'),
         const StorageException(message: 'upload failed'),
         const AuthException(message: 'not authenticated'),
+        const ValidationException(message: 'field required'),
         const UnknownException(message: 'unexpected'),
       ];
 
@@ -40,6 +41,7 @@ void main() {
             FirestoreException() => 'firestore',
             StorageException() => 'storage',
             AuthException() => 'auth',
+            ValidationException() => 'validation',
             UnknownException() => 'unknown',
           };
 
