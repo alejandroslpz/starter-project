@@ -78,7 +78,13 @@ class _LoginPageState extends State<LoginPage> {
             );
             context.read<AuthBloc>().add(ErrorDismissedEvent());
           } else if (state is AuthAuthenticated) {
-            context.go('/');
+            final returnTo =
+                GoRouterState.of(context).uri.queryParameters['return'];
+            if (returnTo != null && returnTo.isNotEmpty) {
+              context.go(Uri.decodeComponent(returnTo));
+            } else {
+              context.go('/');
+            }
           }
         },
         builder: (context, state) {
@@ -136,9 +142,18 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 12),
                   if (!isLoading)
                     GoogleSignInButton(
-                      onTap: () => context
-                          .read<AuthBloc>()
-                          .add(SignInWithGoogleEvent()),
+                      onTap: () {
+                        final bloc = context.read<AuthBloc>();
+                        // Email sign-in from LoginPage always uses SignInWithEmailEvent,
+                        // even when the user is anonymous (the repo handles the
+                        // email-already-in-use fallback). Google, however, can link
+                        // the anonymous account to a real identity when tapped here.
+                        if (bloc.state is AuthAnonymous) {
+                          bloc.add(const LinkAnonymousWithGoogleEvent());
+                        } else {
+                          bloc.add(SignInWithGoogleEvent());
+                        }
+                      },
                     ),
                   const SizedBox(height: 16),
                   Row(

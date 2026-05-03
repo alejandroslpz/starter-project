@@ -4,6 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:news_app_clean_architecture/core/error/app_exception.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
 import 'package:news_app_clean_architecture/core/usecase/usecase.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_user.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_email.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_google.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/send_password_reset.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_anonymously.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_with_email.dart';
@@ -16,16 +19,14 @@ import 'auth_state.dart';
 
 /// Global auth BLoC — observer of [FirebaseAuth.authStateChanges].
 ///
-/// **Bootstrap responsibility lives in `main()`**, not here. By the time the
+/// Bootstrap responsibility lives in `main()`, not here. By the time the
 /// bloc receives [WatchAuthStateEvent] the auth stream already has a stable
-/// initial value (anonymous user or signed-in user). The bloc therefore only
-/// translates stream emissions to bloc states; it never calls
-/// `signInAnonymously` proactively. This avoids the FlutterFire #3053
-/// behaviour where each call to `signInAnonymously` on Android creates a new
-/// user even if one already exists.
+/// initial value. The bloc only translates stream emissions to bloc states;
+/// it never calls `signInAnonymously` proactively to avoid creating a new
+/// anonymous user on each cold start on Android.
 ///
-/// Sign-in/sign-up/sign-out events do their own one-shot work and let the
-/// auth stream propagate the resulting state.
+/// Sign-in/sign-up/link/sign-out events do their own one-shot work and let
+/// the auth stream propagate the resulting state.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final WatchAuthStateUseCase _watchAuthState;
   final SignInAnonymouslyUseCase _signInAnonymously;
@@ -34,6 +35,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignInWithGoogleUseCase _signInWithGoogle;
   final SignOutUseCase _signOut;
   final SendPasswordResetUseCase _sendPasswordReset;
+  final LinkAnonymousWithEmailUseCase _linkAnonymousWithEmail;
+  final LinkAnonymousWithGoogleUseCase _linkAnonymousWithGoogle;
 
   StreamSubscription<dynamic>? _authSubscription;
 
@@ -51,6 +54,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     this._signInWithGoogle,
     this._signOut,
     this._sendPasswordReset,
+    this._linkAnonymousWithEmail,
+    this._linkAnonymousWithGoogle,
   ) : super(const AuthInitial()) {
     on<WatchAuthStateEvent>(_onWatchAuthState);
     on<SignInAnonymouslyEvent>(_onSignInAnonymously);
@@ -60,6 +65,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<SignOutEvent>(_onSignOut);
     on<SendPasswordResetEvent>(_onSendPasswordReset);
     on<ErrorDismissedEvent>(_onErrorDismissed);
+    on<LinkAnonymousWithEmailEvent>(_onLinkAnonymousWithEmail);
+    on<LinkAnonymousWithGoogleEvent>(_onLinkAnonymousWithGoogle);
   }
 
   // -------------------------------------------------------------------
@@ -187,6 +194,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final currentState = state;
     if (currentState is AuthError) {
       emit(currentState.previousState);
+    }
+  }
+
+  Future<void> _onLinkAnonymousWithEmail(
+    LinkAnonymousWithEmailEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final prevState = state;
+    emit(const AuthAuthenticating());
+
+    final result =
+        await _linkAnonymousWithEmail.call(params: event.params);
+    if (result is DataFailed<AuthUserEntity>) {
+      emit(AuthError(result.error!, previousState: prevState));
+    }
+    // On success the auth stream fires and the watch handler emits
+    // AuthAuthenticated — no explicit emit needed here.
+  }
+
+  Future<void> _onLinkAnonymousWithGoogle(
+    LinkAnonymousWithGoogleEvent event,
+    Emitter<AuthState> emit,
+  ) async {
+    final prevState = state;
+    emit(const AuthAuthenticating());
+
+    final result =
+        await _linkAnonymousWithGoogle.call(params: const NoParams());
+    if (result is DataFailed<AuthUserEntity>) {
+      final error = result.error!;
+      if (error is AuthException && error.code == 'cancelled') {
+        emit(prevState);
+      } else {
+        emit(AuthError(error, previousState: prevState));
+      }
     }
   }
 
