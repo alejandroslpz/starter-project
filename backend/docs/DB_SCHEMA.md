@@ -104,6 +104,8 @@ Auth-derived, profile, streak, and counter fields for every registered user.
 
 Core content document. Groups: NewsAPI parity, Symmetry-aligned, authorship, source, AI, lifecycle, engagement.
 
+**Naming convention for cross-collection references**: FK fields are named after the target collection (e.g., `userId` for `users/{userId}`). Denormalized snapshot fields share the same prefix (`userDisplayName`, `userPhotoUrl`). Role prefixes (e.g., `authorId`) are reserved for documents that reference the same collection from multiple distinct roles. See engram observation #403.
+
 | Field | Type | Marker | Notes |
 |-------|------|--------|-------|
 | `title` | string | REQUIRED | 5..200 chars |
@@ -112,8 +114,9 @@ Core content document. Groups: NewsAPI parity, Symmetry-aligned, authorship, sou
 | `url` | string | OPTIONAL | external URL for newsapi-sourced articles |
 | `urlToImage` | string | REQUIRED | mandatory thumbnail; points to Storage path or external URL |
 | `publishedAt` | Timestamp | REQUIRED | server-side |
-| `author` | string | REQUIRED | denormalized from `users/{authorId}.displayName`; see [Open Questions](#open-questions) |
-| `authorId` | reference | REQUIRED | ref → `users/{userId}` |
+| `userId` | reference | REQUIRED | FK → `users/{userId}` — Firebase Auth UID of the article author |
+| `userDisplayName` | string | REQUIRED | denormalized from `users/{userId}.displayName`; see [Open Questions](#open-questions) |
+| `userPhotoUrl` | string | OPTIONAL | denormalized from `users/{userId}.photoURL` |
 | `source` | string | REQUIRED | enum: `"journalist"` \| `"newsapi"` |
 | `category` | string | REQUIRED | enum: `"fitness"` \| `"news"` \| `"lifestyle"` \| `"tech"` \| `"other"` |
 | `tags` | array\<string\> | OPTIONAL | maxItems 10 |
@@ -126,9 +129,15 @@ Core content document. Groups: NewsAPI parity, Symmetry-aligned, authorship, sou
 | `updatedAt` | Timestamp | REQUIRED | server-side, updated on every write |
 | `viewCount` | number | REQUIRED | denormalized, default 0 |
 | `favoriteCount` | number | REQUIRED | denormalized, default 0 |
+| `isDeleted` | bool | REQUIRED | default `false`; set to `true` on soft delete — document is never hard-deleted |
+| `deletedAt` | Timestamp | OPTIONAL | set to `serverTimestamp()` when `isDeleted` transitions to `true`; `null` for live articles |
 | `searchHitCount` | number | FUTURE (`ai-embeddings`) | default 0; incremented by semantic search Cloud Function |
 
-**Field count**: 21 (note: `aiSummary` is excluded from main table — see [Future Fields](#future-fields))
+**Field count**: 23 (note: `aiSummary` is excluded from main table — see [Future Fields](#future-fields))
+
+#### Soft Delete
+
+Articles are soft-deleted via the `isDeleted` flag rather than removed. This preserves the storage thumbnail (cheaper to keep than to garbage-collect), enables future "trash" recovery, and makes accidental deletions reversible. Hard deletes are blocked by Firestore rules (`allow delete: if false`). The client transitions an article to deleted by calling `update({isDeleted: true, deletedAt: serverTimestamp()})`. Feed and "my articles" queries filter `isDeleted == false`.
 
 #### Vector Field Justification
 
@@ -255,7 +264,7 @@ Composite indexes will be declared in `backend/firestore.indexes.json` by the ch
 | Index | Type | Fields | Used by |
 |-------|------|--------|---------|
 | feed-by-recency | composite | `status` ASC, `publishedAt` DESC | home feed |
-| my-articles | composite | `authorId` ASC, `createdAt` DESC | "My Articles" screen |
+| my-articles | composite | `userId` ASC, `createdAt` DESC | "My Articles" screen |
 | category-feed | composite | `category` ASC, `status` ASC, `publishedAt` DESC | category filter chips |
 | my-favorites | implicit | subcollection ordered by `favoritedAt` DESC | `users/{uid}/favorites` listing |
 | article-views | implicit | subcollection ordered by `viewedAt` DESC | analytics aggregator (`analytics-dashboard`) |
@@ -277,7 +286,7 @@ No `match` / `allow` Firestore rules syntax appears in this document.
 | `description` must be 20..500 chars | `articles.description` | Firestore rules — `article-upload` |
 | `content` must be ≥50 chars | `articles.content` | Firestore rules — `article-upload` |
 | `urlToImage` must not be empty | `articles.urlToImage` | Firestore rules — `article-upload` |
-| `authorId == request.auth.uid` on write | `articles.authorId` | Firestore rules — `article-upload` |
+| `userId == request.auth.uid` on write | `articles.userId` | Firestore rules — `article-upload` |
 | `source == "journalist"` for client writes | `articles.source` | Firestore rules — `article-upload` |
 | `users/{uid}` writable only by owner | `users/{userId}` | Firestore rules — `auth` |
 | `usernames/{username}` create-only; `userId == request.auth.uid` | `usernames/{usernameLowercase}` | Firestore rules — `auth` |
@@ -303,8 +312,8 @@ Every locked decision in `project/architecture-decisions` maps to a concrete sch
 
 All three questions are resolved for implementation.
 
-1. **Denormalize `articles.author` (display name) or resolve via `authorId`?**
-   **Chosen: denormalize.** Reads dominate writes; `displayName` changes are rare; saves a `users/` fan-out per article in the feed. Trade-off: when a user changes their `displayName`, a Cloud Function must back-fill `articles` where `authorId == uid`. Acceptable cost.
+1. **Denormalize `articles.userDisplayName` (display name) or resolve via `userId`?**
+   **Chosen: denormalize.** Reads dominate writes; `displayName` changes are rare; saves a `users/` fan-out per article in the feed. Trade-off: when a user changes their `displayName`, a Cloud Function must back-fill `articles` where `userId == uid`. Acceptable cost.
 
 2. **Lowercase-normalize `users.username`?**
    **Chosen: yes.** The doc id of `usernames/{usernameLowercase}` is the lowercase form; the display form is stored in `users.username`. Case-insensitive uniqueness is enforced by the existence rule on `usernames/{lowercase}` (create-only, no update).
