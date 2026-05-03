@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/params/sign_up_params.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
@@ -61,6 +62,9 @@ class _SignupPageState extends State<SignupPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.error.localizedMessage)),
             );
+            context.read<AuthBloc>().add(ErrorDismissedEvent());
+          } else if (state is AuthAuthenticated) {
+            context.go('/');
           }
         },
         builder: (context, state) {
@@ -115,6 +119,17 @@ class _SignupPageState extends State<SignupPage> {
                     onPressed: () => _onCreateAccount(context),
                     child: const Text('Create account'),
                   ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Already have an account?'),
+                    TextButton(
+                      onPressed: isLoading ? null : () => context.pop(),
+                      child: const Text('Sign in'),
+                    ),
+                  ],
+                ),
               ],
             ),
           );

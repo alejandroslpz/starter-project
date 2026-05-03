@@ -23,8 +23,23 @@ abstract class FirebaseAuthService {
   /// Sends a password-reset email.
   Future<void> sendPasswordResetEmail(String email);
 
+  /// Updates the display name on the current Firebase profile and returns
+  /// the refreshed [User] (with the new displayName populated).
+  ///
+  /// Used after sign-up so the FirebaseAuth profile and the Firestore mirror
+  /// stay consistent.
+  Future<User> updateDisplayName(User user, String displayName);
+
   /// Returns the currently signed-in [User] or null.
   User? get currentUser;
+
+  /// Validates the locally cached user against the server by calling
+  /// `user.reload()`. Returns the refreshed [User] if still valid, or `null`
+  /// if the user has been deleted/disabled server-side or no user is cached.
+  ///
+  /// On invalidation, also performs a local `signOut()` so subsequent calls
+  /// to [currentUser] return null.
+  Future<User?> reloadCurrentUser();
 
   /// Continuous stream of auth state changes.
   Stream<User?> authStateChanges();

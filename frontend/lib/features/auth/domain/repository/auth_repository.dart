@@ -36,4 +36,16 @@ abstract class AuthRepository {
 
   /// Returns the currently signed-in user, or [null] if none.
   AuthUserEntity? get currentUser;
+
+  /// Validates the locally cached user against the auth server.
+  ///
+  /// Returns the validated entity if still valid, or `null` if the user has
+  /// been deleted/disabled server-side (or no user is cached). On
+  /// invalidation, the implementation MUST sign the user out locally so the
+  /// bloc can bootstrap a fresh anonymous identity.
+  ///
+  /// Used by the bloc on cold start to recover from "stale local cache"
+  /// scenarios — primarily during development when Firebase data is wiped
+  /// from the console while the device retains a cached UID.
+  Future<AuthUserEntity?> validateCachedUser();
 }

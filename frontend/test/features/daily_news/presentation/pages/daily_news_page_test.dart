@@ -3,36 +3,45 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:news_app_clean_architecture/core/error/app_exception.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_user.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
 
-// Mock BLoC — bloc_test + mocktail pattern (matches project conventions).
+// Mock BLoCs — bloc_test + mocktail pattern.
 class MockRemoteArticlesBloc
     extends MockBloc<RemoteArticlesEvent, RemoteArticlesState>
     implements RemoteArticlesBloc {}
 
-// Stub widget used as the /SavedArticles route destination so we can verify
-// navigation without pulling in the full DI-wired SavedArticles screen.
+class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
+// Stub destination for /saved.
 class _SavedArticlesStub extends StatelessWidget {
   const _SavedArticlesStub();
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: Text('SavedArticles')),
-    );
-  }
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: Text('SavedArticlesStub')));
+}
+
+// Stub destination for /login.
+class _LoginStub extends StatelessWidget {
+  const _LoginStub();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Scaffold(body: Center(child: Text('LoginStub')));
 }
 
 // Minimal article with all non-nullable fields populated.
-// ArticleWidget uses `article!.urlToImage!` and `article!.publishedAt!`
-// directly, so both must be non-null to avoid a runtime null-check failure
-// during widget rendering.
 const _mockArticle = ArticleEntity(
   id: 1,
   author: 'Test Author',
@@ -44,38 +53,71 @@ const _mockArticle = ArticleEntity(
   content: 'Full content of the test article.',
 );
 
-Widget _buildTestWidget(RemoteArticlesBloc bloc) {
-  return BlocProvider<RemoteArticlesBloc>.value(
-    value: bloc,
-    child: MaterialApp(
-      routes: {
-        '/SavedArticles': (_) => const _SavedArticlesStub(),
-      },
-      home: const DailyNews(),
-    ),
+const _mockUser = AuthUserEntity(
+  uid: 'user-1',
+  email: 'test@example.com',
+  displayName: 'Test User',
+  photoURL: null,
+  providerId: 'password',
+  isAnonymous: false,
+);
+
+const _mockAnonUser = AuthUserEntity(
+  uid: 'anon-1',
+  email: null,
+  displayName: null,
+  photoURL: null,
+  providerId: 'anonymous',
+  isAnonymous: true,
+);
+
+Widget _buildTestWidget(
+  RemoteArticlesBloc remoteBloc,
+  AuthBloc authBloc,
+) {
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (_, __) => const DailyNews()),
+      GoRoute(path: '/saved', builder: (_, __) => const _SavedArticlesStub()),
+      GoRoute(path: '/login', builder: (_, __) => const _LoginStub()),
+      GoRoute(path: '/article/:id', builder: (_, __) => const Scaffold()),
+    ],
+  );
+
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<RemoteArticlesBloc>.value(value: remoteBloc),
+      BlocProvider<AuthBloc>.value(value: authBloc),
+    ],
+    child: MaterialApp.router(routerConfig: router),
   );
 }
 
 void main() {
-  late MockRemoteArticlesBloc bloc;
+  late MockRemoteArticlesBloc remoteBloc;
+  late MockAuthBloc authBloc;
 
   setUp(() {
-    bloc = MockRemoteArticlesBloc();
+    remoteBloc = MockRemoteArticlesBloc();
+    authBloc = MockAuthBloc();
+    // Default: anonymous user. Individual tests override as needed.
+    when(() => authBloc.state).thenReturn(const AuthAnonymous(_mockAnonUser));
   });
 
   tearDown(() {
-    bloc.close();
+    remoteBloc.close();
+    authBloc.close();
   });
 
-  // R15 — Scenario 6: regression tests for DailyNews feed behaviour.
-
+  // R15 — regression coverage for DailyNews feed behaviour.
   group('DailyNews page — R15 regression', () {
     testWidgets(
         'shows CupertinoActivityIndicator when BLoC emits RemoteArticlesLoading',
         (tester) async {
-      when(() => bloc.state).thenReturn(const RemoteArticlesLoading());
+      when(() => remoteBloc.state).thenReturn(const RemoteArticlesLoading());
 
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
       await tester.pump();
 
       expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
@@ -84,47 +126,88 @@ void main() {
     testWidgets(
         'shows article tile when BLoC emits RemoteArticlesDone with one article',
         (tester) async {
-      when(() => bloc.state)
+      when(() => remoteBloc.state)
           .thenReturn(const RemoteArticlesDone([_mockArticle]));
 
-      await tester.pumpWidget(_buildTestWidget(bloc));
-      // Allow image network fetch to settle (cached_network_image)
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
       await tester.pump();
 
-      // The article title appears in the rendered list.
       expect(find.text('Test Article Title'), findsOneWidget);
     });
 
-    testWidgets(
-        'shows refresh icon when BLoC emits RemoteArticlesError',
+    testWidgets('shows refresh icon when BLoC emits RemoteArticlesError',
         (tester) async {
-      when(() => bloc.state).thenReturn(
+      when(() => remoteBloc.state).thenReturn(
           const RemoteArticlesError(NetworkException(message: 'no network')));
 
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
       await tester.pump();
 
       expect(find.byIcon(Icons.refresh), findsOneWidget);
     });
 
-    testWidgets(
-        'tapping bookmark icon in AppBar navigates to /SavedArticles',
+    testWidgets('tapping bookmark icon in AppBar navigates to /saved',
         (tester) async {
-      when(() => bloc.state)
+      when(() => remoteBloc.state)
           .thenReturn(const RemoteArticlesDone([_mockArticle]));
 
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
       await tester.pump();
 
-      // The bookmark icon is rendered inside GestureDetector in the AppBar.
       final bookmarkIcon = find.byIcon(Icons.bookmark);
       expect(bookmarkIcon, findsOneWidget);
 
       await tester.tap(bookmarkIcon);
       await tester.pumpAndSettle();
 
-      // After navigation the stub screen is visible.
-      expect(find.text('SavedArticles'), findsOneWidget);
+      expect(find.text('SavedArticlesStub'), findsOneWidget);
+    });
+  });
+
+  // Account entry point — Boy Scout coverage for the new auth-aware AppBar action.
+  group('DailyNews page — account entry point', () {
+    testWidgets(
+        'shows person_outline icon and navigates to /login when AuthAnonymous',
+        (tester) async {
+      when(() => remoteBloc.state)
+          .thenReturn(const RemoteArticlesDone([_mockArticle]));
+      when(() => authBloc.state).thenReturn(const AuthAnonymous(_mockAnonUser));
+
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pump();
+
+      final personIcon = find.byIcon(Icons.person_outline);
+      expect(personIcon, findsOneWidget);
+
+      await tester.tap(personIcon);
+      await tester.pumpAndSettle();
+
+      expect(find.text('LoginStub'), findsOneWidget);
+    });
+
+    testWidgets(
+        'shows account_circle icon when AuthAuthenticated and surfaces sign out menu',
+        (tester) async {
+      // Loading state avoids rendering article tiles with cached_network_image
+      // (which keeps pumpAndSettle from converging in the test environment).
+      when(() => remoteBloc.state).thenReturn(const RemoteArticlesLoading());
+      when(() => authBloc.state)
+          .thenReturn(const AuthAuthenticated(_mockUser));
+
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pump();
+
+      final accountIcon = find.byIcon(Icons.account_circle);
+      expect(accountIcon, findsOneWidget);
+
+      await tester.tap(accountIcon);
+      // Two pumps for the popup animation; pumpAndSettle would hang if any
+      // sibling widget was still loading remotely.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Test User'), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
     });
   });
 }

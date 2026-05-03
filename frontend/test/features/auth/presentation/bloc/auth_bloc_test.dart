@@ -133,14 +133,14 @@ void main() {
   });
 
   // -------------------------------------------------------------------
-  // WatchAuthState — null stream → auto SignInAnonymously
+  // WatchAuthState — null stream → AuthUnauthenticated (no auto-anonymous)
   // -------------------------------------------------------------------
+  // Bootstrap (auto-anonymous) lives in main() now, not in the bloc. The
+  // bloc is a pure observer of authStateChanges; null means "signed out".
   blocTest<AuthBloc, AuthState>(
-    'WatchAuthState: null stream emission triggers anonymous sign-in chain',
+    'WatchAuthState: null stream emits AuthUnauthenticated',
     build: () {
       stubWatch(null);
-      when(() => signInAnonymously.call(params: any(named: 'params')))
-          .thenAnswer((_) async => const DataSuccess(_anonUser));
       return _buildBloc(
         watchAuthState: watchAuthState,
         signInAnonymously: signInAnonymously,
@@ -152,14 +152,7 @@ void main() {
       );
     },
     act: (bloc) => bloc.add(WatchAuthStateEvent()),
-    // WatchAuthState emits AuthAuthenticating first (D11).
-    // Then null stream → add(SignInAnonymously) → AuthAnonymous.
-    // The SignInAnonymously AuthAuthenticating may be merged or occur after
-    // the stream closes depending on bloc event queue ordering.
-    expect: () => [
-      isA<AuthAuthenticating>(),
-      isA<AuthAnonymous>(),
-    ],
+    expect: () => [isA<AuthUnauthenticated>()],
   );
 
   // -------------------------------------------------------------------
@@ -181,10 +174,7 @@ void main() {
       );
     },
     act: (bloc) => bloc.add(WatchAuthStateEvent()),
-    expect: () => [
-      isA<AuthAuthenticating>(),
-      isA<AuthAuthenticated>(),
-    ],
+    expect: () => [isA<AuthAuthenticated>()],
   );
 
   // -------------------------------------------------------------------
@@ -213,10 +203,9 @@ void main() {
         const SignInParams(email: 'u@e.com', password: 'pass1234'),
       ),
     ),
-    expect: () => [
-      isA<AuthAuthenticating>(),
-      isA<AuthAuthenticated>(),
-    ],
+    // On success the bloc emits AuthAuthenticating; the AuthAuthenticated
+    // emission would come from the auth stream, which we don't simulate here.
+    expect: () => [isA<AuthAuthenticating>()],
   );
 
   // -------------------------------------------------------------------
@@ -281,10 +270,9 @@ void main() {
         ),
       ),
     ),
-    expect: () => [
-      isA<AuthAuthenticating>(),
-      isA<AuthAuthenticated>(),
-    ],
+    // Same as sign-in success — the AuthAuthenticated emission is the
+    // stream's job (post-signup Firebase emits the new user).
+    expect: () => [isA<AuthAuthenticating>()],
   );
 
   // -------------------------------------------------------------------
@@ -314,14 +302,11 @@ void main() {
       );
     },
     act: (bloc) => bloc.add(SignInWithGoogleEvent()),
-    // Cancelled = emit AuthAuthenticating then remain in previous state
-    // (design: cancelled Google sign-in stays anonymous, no AuthError emitted)
+    // Cancelled = emit AuthAuthenticating, then revert to previous state
+    // (AuthInitial here since the watch handler hasn't been started).
     expect: () => [
       isA<AuthAuthenticating>(),
-      // Cancelled sign-in does NOT emit AuthError for popup-closed-by-user
-      // per design D1 — it stays in AuthAnonymous (previous state)
-      // For now the bloc emits AuthAnonymous after popup-closed-by-user
-      isA<AuthAnonymous>(),
+      isA<AuthInitial>(),
     ],
   );
 
@@ -348,12 +333,11 @@ void main() {
       );
     },
     act: (bloc) => bloc.add(SignOutEvent()),
-    expect: () => [
-      isA<AuthAuthenticating>(),
-      isA<AuthUnauthenticated>(),
-      isA<AuthAuthenticating>(),
-      isA<AuthAnonymous>(),
-    ],
+    // SignOut emits AuthAuthenticating, then chains SignInAnonymouslyEvent
+    // which would emit AuthAuthenticating again — but Equatable dedupes
+    // consecutive identical states, so we only see one. The terminal
+    // AuthAnonymous would come from the auth stream (not simulated here).
+    expect: () => [isA<AuthAuthenticating>()],
   );
 
   // -------------------------------------------------------------------

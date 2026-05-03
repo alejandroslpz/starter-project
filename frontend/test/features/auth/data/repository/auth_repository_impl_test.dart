@@ -168,14 +168,44 @@ void main() {
 
       test('returns DataSuccess and upserts user document', () async {
         final mockUser = buildMockUser(email: params.email);
+        final updatedUser = buildMockUser(
+          email: params.email,
+          displayName: params.displayName,
+        );
         when(() => mockAuthService.signUpWithEmail(params.email, params.password))
             .thenAnswer((_) async => mockUser);
+        when(() => mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .thenAnswer((_) async => updatedUser);
         when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
 
         final result = await repository.signUpWithEmail(params);
 
         expect(result, isA<DataSuccess<AuthUserEntity>>());
+        verify(() => mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .called(1);
         verify(() => mockDocService.upsertUser(any())).called(1);
+      });
+
+      test('persists displayName from params on the upserted entity', () async {
+        final mockUser = buildMockUser(email: params.email);
+        final updatedUser = buildMockUser(
+          email: params.email,
+          displayName: params.displayName,
+        );
+        when(() => mockAuthService.signUpWithEmail(params.email, params.password))
+            .thenAnswer((_) async => mockUser);
+        when(() => mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .thenAnswer((_) async => updatedUser);
+        AuthUserEntity? captured;
+        when(() => mockDocService.upsertUser(any())).thenAnswer((invocation) async {
+          captured = invocation.positionalArguments.first as AuthUserEntity;
+        });
+
+        final result = await repository.signUpWithEmail(params);
+
+        expect(result, isA<DataSuccess<AuthUserEntity>>());
+        expect(captured, isNotNull);
+        expect(captured!.displayName, equals(params.displayName));
       });
 
       test('returns DataFailed on email-already-in-use', () async {
