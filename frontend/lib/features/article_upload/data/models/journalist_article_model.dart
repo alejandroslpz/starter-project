@@ -43,10 +43,9 @@ class JournalistArticleModel extends JournalistArticleEntity {
       // pending write before the server confirms. Fall back to local clock —
       // the next emission will overwrite with the real value.
       publishedAt: (data['publishedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      // legacy fallback for in-flight docs written before the rename — remove after backfill
-      userId: (data['userId'] as String?) ?? data['authorUserId'] as String? ?? data['authorId'] as String,
-      userDisplayName: (data['userDisplayName'] as String?) ?? data['authorDisplayName'] as String,
-      userPhotoUrl: (data['userPhotoUrl'] as String?) ?? data['authorPhotoUrl'] as String?,
+      userId: data['userId'] as String,
+      userDisplayName: data['userDisplayName'] as String,
+      userPhotoUrl: data['userPhotoUrl'] as String?,
       source: data['source'] as String? ?? 'journalist',
       category: ArticleCategory.fromApiValue(data['category'] as String),
       tags: ((data['tags'] as List<dynamic>?) ?? const []).cast<String>(),

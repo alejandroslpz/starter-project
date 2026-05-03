@@ -179,52 +179,11 @@ void main() {
         });
       }
 
-      test('legacy fallback: reads userId when present', () {
+      test('reads userId, userDisplayName and userPhotoUrl', () {
         final model = JournalistArticleModel.fromRawData(snapshot);
         expect(model.userId, equals('user123'));
         expect(model.userDisplayName, equals('Jane Doe'));
         expect(model.userPhotoUrl, equals('https://example.com/photo.jpg'));
-      });
-
-      test('legacy fallback: falls back to authorUserId when userId absent', () {
-        final data = baseData();
-        data.remove('userId');
-        data['authorUserId'] = 'author-user-789';
-        when(() => snapshot.data()).thenReturn(data);
-
-        final model = JournalistArticleModel.fromRawData(snapshot);
-        expect(model.userId, equals('author-user-789'));
-      });
-
-      test('legacy fallback: falls back to authorId when userId and authorUserId absent', () {
-        final data = baseData();
-        data.remove('userId');
-        data.remove('authorUserId');
-        data['authorId'] = 'legacy-user-456';
-        when(() => snapshot.data()).thenReturn(data);
-
-        final model = JournalistArticleModel.fromRawData(snapshot);
-        expect(model.userId, equals('legacy-user-456'));
-      });
-
-      test('legacy fallback: falls back to authorDisplayName when userDisplayName absent', () {
-        final data = baseData();
-        data.remove('userDisplayName');
-        data['authorDisplayName'] = 'Legacy Author';
-        when(() => snapshot.data()).thenReturn(data);
-
-        final model = JournalistArticleModel.fromRawData(snapshot);
-        expect(model.userDisplayName, equals('Legacy Author'));
-      });
-
-      test('legacy fallback: falls back to authorPhotoUrl when userPhotoUrl absent', () {
-        final data = baseData();
-        data.remove('userPhotoUrl');
-        data['authorPhotoUrl'] = 'https://legacy.com/photo.jpg';
-        when(() => snapshot.data()).thenReturn(data);
-
-        final model = JournalistArticleModel.fromRawData(snapshot);
-        expect(model.userPhotoUrl, equals('https://legacy.com/photo.jpg'));
       });
 
       test('isDeleted defaults to false when field absent', () {
