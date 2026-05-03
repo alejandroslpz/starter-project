@@ -14,7 +14,13 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/entities/
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_state.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/entities/draft_article.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_drafts.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_bloc.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_event.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
+import 'package:news_app_clean_architecture/injection_container.dart';
 
 // Mock BLoCs — bloc_test + mocktail pattern.
 class MockRemoteArticlesBloc
@@ -22,6 +28,14 @@ class MockRemoteArticlesBloc
     implements RemoteArticlesBloc {}
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
+class MockFeedBloc extends MockBloc<FeedEvent, FeedState> implements FeedBloc {}
+
+class MockWatchDraftsUseCase extends Mock implements WatchDraftsUseCase {
+  @override
+  Stream<List<DraftArticleEntity>> call({dynamic params}) =>
+      const Stream.empty();
+}
 
 // Stub destination for /saved.
 class _SavedArticlesStub extends StatelessWidget {
@@ -73,8 +87,9 @@ const _mockAnonUser = AuthUserEntity(
 
 Widget _buildTestWidget(
   RemoteArticlesBloc remoteBloc,
-  AuthBloc authBloc,
-) {
+  AuthBloc authBloc, {
+  FeedBloc? feedBloc,
+}) {
   final router = GoRouter(
     initialLocation: '/',
     routes: [
@@ -82,6 +97,7 @@ Widget _buildTestWidget(
       GoRoute(path: '/saved', builder: (_, __) => const _SavedArticlesStub()),
       GoRoute(path: '/login', builder: (_, __) => const _LoginStub()),
       GoRoute(path: '/article/:id', builder: (_, __) => const Scaffold()),
+      GoRoute(path: '/article/upload', builder: (_, __) => const Scaffold()),
     ],
   );
 
@@ -89,6 +105,7 @@ Widget _buildTestWidget(
     providers: [
       BlocProvider<RemoteArticlesBloc>.value(value: remoteBloc),
       BlocProvider<AuthBloc>.value(value: authBloc),
+      if (feedBloc != null) BlocProvider<FeedBloc>.value(value: feedBloc),
     ],
     child: MaterialApp.router(routerConfig: router),
   );
@@ -97,17 +114,27 @@ Widget _buildTestWidget(
 void main() {
   late MockRemoteArticlesBloc remoteBloc;
   late MockAuthBloc authBloc;
+  late MockFeedBloc feedBloc;
 
   setUp(() {
     remoteBloc = MockRemoteArticlesBloc();
     authBloc = MockAuthBloc();
-    // Default: anonymous user. Individual tests override as needed.
+    feedBloc = MockFeedBloc();
     when(() => authBloc.state).thenReturn(const AuthAnonymous(_mockAnonUser));
+    when(() => feedBloc.state).thenReturn(const FeedState());
+    if (sl.isRegistered<WatchDraftsUseCase>()) {
+      sl.unregister<WatchDraftsUseCase>();
+    }
+    sl.registerLazySingleton<WatchDraftsUseCase>(() => MockWatchDraftsUseCase());
   });
 
   tearDown(() {
     remoteBloc.close();
     authBloc.close();
+    feedBloc.close();
+    if (sl.isRegistered<WatchDraftsUseCase>()) {
+      sl.unregister<WatchDraftsUseCase>();
+    }
   });
 
   // R15 — regression coverage for DailyNews feed behaviour.
@@ -117,19 +144,22 @@ void main() {
         (tester) async {
       when(() => remoteBloc.state).thenReturn(const RemoteArticlesLoading());
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       expect(find.byType(CupertinoActivityIndicator), findsOneWidget);
     });
 
     testWidgets(
-        'shows article tile when BLoC emits RemoteArticlesDone with one article',
+        'shows article tile when FeedBloc emits an item after RemoteArticlesDone',
         (tester) async {
       when(() => remoteBloc.state)
           .thenReturn(const RemoteArticlesDone([_mockArticle]));
+      when(() => feedBloc.state).thenReturn(FeedState(
+        newsArticles: [_mockArticle],
+      ));
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       expect(find.text('Test Article Title'), findsOneWidget);
@@ -140,7 +170,7 @@ void main() {
       when(() => remoteBloc.state).thenReturn(
           const RemoteArticlesError(NetworkException(message: 'no network')));
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       expect(find.byIcon(Icons.refresh), findsOneWidget);
@@ -151,7 +181,7 @@ void main() {
       when(() => remoteBloc.state)
           .thenReturn(const RemoteArticlesDone([_mockArticle]));
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       final bookmarkIcon = find.byIcon(Icons.bookmark);
@@ -173,7 +203,7 @@ void main() {
           .thenReturn(const RemoteArticlesDone([_mockArticle]));
       when(() => authBloc.state).thenReturn(const AuthAnonymous(_mockAnonUser));
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       final personIcon = find.byIcon(Icons.person_outline);
@@ -194,7 +224,7 @@ void main() {
       when(() => authBloc.state)
           .thenReturn(const AuthAuthenticated(_mockUser));
 
-      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc));
+      await tester.pumpWidget(_buildTestWidget(remoteBloc, authBloc, feedBloc: feedBloc));
       await tester.pump();
 
       final accountIcon = find.byIcon(Icons.account_circle);

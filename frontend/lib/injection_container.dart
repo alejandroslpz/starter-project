@@ -5,6 +5,31 @@ import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:news_app_clean_architecture/firebase_options.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/local/draft_dao.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/local/image_processing_service.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/local/image_processing_service_impl.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/remote/article_storage_service.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/remote/article_storage_service_impl.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/remote/articles_firestore_service.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/data_sources/remote/articles_firestore_service_impl.dart';
+import 'package:news_app_clean_architecture/features/article_upload/data/repository/article_upload_repository_impl.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/repository/article_upload_repository.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/delete_article.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/delete_draft.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/get_draft_by_id.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/publish_article.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/save_draft.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/toggle_favorite.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/update_article.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_article_by_id.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_community_feed.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_drafts.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_favorite_ids.dart';
+import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_my_articles.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/favorites/favorites_bloc.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_bloc.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_bloc.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/firebase_auth_service.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/firebase_auth_service_impl.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/google_sign_in_service.dart';
@@ -14,6 +39,8 @@ import 'package:news_app_clean_architecture/features/auth/data/data_sources/remo
 import 'package:news_app_clean_architecture/features/auth/data/repository/auth_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/repository/auth_repository.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/bootstrap_auth.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_email.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_google.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/send_password_reset.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_anonymously.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_with_email.dart';
@@ -26,6 +53,7 @@ import 'package:news_app_clean_architecture/features/daily_news/data/data_source
 import 'package:news_app_clean_architecture/features/daily_news/data/repository/article_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/repository/article_repository.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_article.dart';
+import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_fitness_articles.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'features/daily_news/data/data_sources/local/app_database.dart';
 import 'features/daily_news/domain/use_cases/get_saved_article.dart';
@@ -37,7 +65,10 @@ final sl = GetIt.instance;
 
 Future<void> initializeDependencies() async {
 
-  final database = await $FloorAppDatabase.databaseBuilder('app_database.db').build();
+  final database = await $FloorAppDatabase
+      .databaseBuilder('app_database.db')
+      .addMigrations([migration1to2])
+      .build();
   sl.registerSingleton<AppDatabase>(database);
 
   // Firebase singletons — registered after Firebase.initializeApp() in main.dart
@@ -60,6 +91,10 @@ Future<void> initializeDependencies() async {
     GetArticleUseCase(sl())
   );
 
+  sl.registerSingleton<GetFitnessArticlesUseCase>(
+    GetFitnessArticlesUseCase(sl())
+  );
+
   sl.registerSingleton<GetSavedArticleUseCase>(
     GetSavedArticleUseCase(sl())
   );
@@ -73,7 +108,7 @@ Future<void> initializeDependencies() async {
   );
 
 
-  //Blocs — daily_news (factory = per-screen state, per design D12)
+  //Blocs — daily_news (factory = per-screen state)
   sl.registerFactory<RemoteArticlesBloc>(
     ()=> RemoteArticlesBloc(sl())
   );
@@ -83,7 +118,7 @@ Future<void> initializeDependencies() async {
   );
 
   // -----------------------------------------------------------------------
-  // Auth — services, repository, use cases, bloc (design D12)
+  // Auth — services, repository, use cases, bloc
   // -----------------------------------------------------------------------
 
   // Auth services
@@ -117,7 +152,7 @@ Future<void> initializeDependencies() async {
     () => AuthRepositoryImpl(sl(), sl(), sl()),
   );
 
-  // Auth use cases (7)
+  // Auth use cases
   sl.registerLazySingleton<SignInAnonymouslyUseCase>(
     () => SignInAnonymouslyUseCase(sl()),
   );
@@ -140,9 +175,119 @@ Future<void> initializeDependencies() async {
   sl.registerLazySingleton<BootstrapAuthUseCase>(
     () => BootstrapAuthUseCase(sl()),
   );
+  sl.registerLazySingleton<LinkAnonymousWithEmailUseCase>(
+    () => LinkAnonymousWithEmailUseCase(sl()),
+  );
+  sl.registerLazySingleton<LinkAnonymousWithGoogleUseCase>(
+    () => LinkAnonymousWithGoogleUseCase(sl()),
+  );
 
-  // AuthBloc — lazySingleton (global state, NOT factory — design D12)
+  // AuthBloc — lazySingleton (global state, NOT factory)
   sl.registerLazySingleton<AuthBloc>(
-    () => AuthBloc(sl(), sl(), sl(), sl(), sl(), sl(), sl()),
+    () => AuthBloc(sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl(), sl()),
+  );
+
+  // -----------------------------------------------------------------------
+  // Article upload — data-layer services and repository
+  // Use cases and BLoCs are registered in Batch G.
+  // -----------------------------------------------------------------------
+  sl.registerLazySingleton<ArticlesFirestoreService>(
+    () => ArticlesFirestoreServiceImpl(sl<FirebaseFirestore>()),
+  );
+  sl.registerLazySingleton<ArticleStorageService>(
+    () => ArticleStorageServiceImpl(sl<FirebaseStorage>()),
+  );
+  sl.registerLazySingleton<ImageProcessingService>(
+    () => ImageProcessingServiceImpl(),
+  );
+  sl.registerLazySingleton<DraftDao>(
+    () => sl<AppDatabase>().draftDao,
+  );
+  sl.registerLazySingleton<ArticleUploadRepository>(
+    () => ArticleUploadRepositoryImpl(
+      sl<ArticlesFirestoreService>(),
+      sl<ArticleStorageService>(),
+      sl<DraftDao>(),
+      sl<FirebaseAuth>(),
+    ),
+  );
+
+  // -----------------------------------------------------------------------
+  // Article upload — use cases
+  // -----------------------------------------------------------------------
+  sl.registerLazySingleton<PublishArticleUseCase>(
+    () => PublishArticleUseCase(sl()),
+  );
+  sl.registerLazySingleton<UpdateArticleUseCase>(
+    () => UpdateArticleUseCase(sl()),
+  );
+  sl.registerLazySingleton<DeleteArticleUseCase>(
+    () => DeleteArticleUseCase(sl()),
+  );
+  sl.registerLazySingleton<WatchMyArticlesUseCase>(
+    () => WatchMyArticlesUseCase(sl()),
+  );
+  sl.registerLazySingleton<WatchCommunityFeedUseCase>(
+    () => WatchCommunityFeedUseCase(sl()),
+  );
+  sl.registerLazySingleton<WatchArticleByIdUseCase>(
+    () => WatchArticleByIdUseCase(sl()),
+  );
+  sl.registerLazySingleton<ToggleFavoriteUseCase>(
+    () => ToggleFavoriteUseCase(sl()),
+  );
+  sl.registerLazySingleton<WatchFavoriteIdsUseCase>(
+    () => WatchFavoriteIdsUseCase(sl()),
+  );
+  sl.registerLazySingleton<SaveDraftUseCase>(
+    () => SaveDraftUseCase(sl()),
+  );
+  sl.registerLazySingleton<WatchDraftsUseCase>(
+    () => WatchDraftsUseCase(sl()),
+  );
+  sl.registerLazySingleton<DeleteDraftUseCase>(
+    () => DeleteDraftUseCase(sl()),
+  );
+  sl.registerLazySingleton<GetDraftByIdUseCase>(
+    () => GetDraftByIdUseCase(sl()),
+  );
+
+  // -----------------------------------------------------------------------
+  // Article upload — BLoCs
+  // -----------------------------------------------------------------------
+  sl.registerFactory<UploadArticleBloc>(
+    () => UploadArticleBloc(
+      sl<PublishArticleUseCase>(),
+      sl<SaveDraftUseCase>(),
+      sl<ImageProcessingService>(),
+      sl<FirebaseAuth>(),
+      sl<GetDraftByIdUseCase>(),
+      sl<UpdateArticleUseCase>(),
+    ),
+  );
+
+  sl.registerLazySingleton<FeedBloc>(
+    () => FeedBloc(
+      sl<GetArticleUseCase>(),
+      sl<GetFitnessArticlesUseCase>(),
+      sl<WatchCommunityFeedUseCase>(),
+    ),
+  );
+
+  sl.registerFactory<MyArticlesBloc>(
+    () => MyArticlesBloc(
+      sl<WatchMyArticlesUseCase>(),
+      sl<DeleteArticleUseCase>(),
+      sl<WatchDraftsUseCase>(),
+      sl<DeleteDraftUseCase>(),
+    ),
+  );
+
+  sl.registerLazySingleton<FavoritesBloc>(
+    () => FavoritesBloc(
+      sl<WatchFavoriteIdsUseCase>(),
+      sl<ToggleFavoriteUseCase>(),
+      sl<FirebaseAuth>(),
+    ),
   );
 }
