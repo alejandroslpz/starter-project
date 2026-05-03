@@ -35,7 +35,7 @@ describe('GeminiEmbeddingProvider', () => {
       embedding: { values: fakeVector },
     });
 
-    const result = await provider.embed('hello world');
+    const result = await provider.embed('hello world', 'document');
 
     expect(result).toHaveLength(768);
     expect(result).toEqual(fakeVector);
@@ -45,6 +45,19 @@ describe('GeminiEmbeddingProvider', () => {
     expect(mockEmbedContent).toHaveBeenCalledWith({
       content: { role: 'user', parts: [{ text: 'hello world' }] },
       outputDimensionality: 768,
+      taskType: 'RETRIEVAL_DOCUMENT',
+    });
+  });
+
+  it('embed() forwards RETRIEVAL_QUERY for queries', async () => {
+    mockEmbedContent.mockResolvedValue({ embedding: { values: new Array(768).fill(0.5) } });
+
+    await provider.embed('hello', 'query');
+
+    expect(mockEmbedContent).toHaveBeenCalledWith({
+      content: { role: 'user', parts: [{ text: 'hello' }] },
+      outputDimensionality: 768,
+      taskType: 'RETRIEVAL_QUERY',
     });
   });
 
@@ -55,7 +68,7 @@ describe('GeminiEmbeddingProvider', () => {
       embeddings: [{ values: v1 }, { values: v2 }],
     });
 
-    const result = await provider.embedBatch(['first', 'second']);
+    const result = await provider.embedBatch(['first', 'second'], 'document');
 
     expect(result).toHaveLength(2);
     expect(result[0]).toEqual(v1);
@@ -65,10 +78,12 @@ describe('GeminiEmbeddingProvider', () => {
         {
           content: { role: 'user', parts: [{ text: 'first' }] },
           outputDimensionality: 768,
+          taskType: 'RETRIEVAL_DOCUMENT',
         },
         {
           content: { role: 'user', parts: [{ text: 'second' }] },
           outputDimensionality: 768,
+          taskType: 'RETRIEVAL_DOCUMENT',
         },
       ],
     });
@@ -77,6 +92,6 @@ describe('GeminiEmbeddingProvider', () => {
   it('embed() throws if SDK returns malformed response', async () => {
     mockEmbedContent.mockResolvedValue({ embedding: undefined });
 
-    await expect(provider.embed('hello')).rejects.toThrow();
+    await expect(provider.embed('hello', 'document')).rejects.toThrow();
   });
 });

@@ -112,7 +112,7 @@ describe('searchArticles callable', () => {
       buildRequest({ auth: { uid: 'u1' }, data: { query: 'marathon training' } }) as any,
     );
 
-    expect(mockEmbed).toHaveBeenCalledWith('marathon training');
+    expect(mockEmbed).toHaveBeenCalledWith('marathon training', 'query');
     expect(mockCollection).toHaveBeenCalledWith('articles');
     expect(mockWhere1).toHaveBeenCalledWith('status', '==', 'published');
     expect(mockWhere2).toHaveBeenCalledWith('isDeleted', '==', false);
@@ -138,10 +138,10 @@ describe('searchArticles callable', () => {
     mockEmbed.mockResolvedValue(new Array(768).fill(0.5));
     mockGet.mockResolvedValue({
       docs: [
-        { id: 'close', get: (path: string) => (path === '_distance' ? 0.2 : null) },
-        { id: 'mid', get: (path: string) => (path === '_distance' ? 0.7 : null) },
-        { id: 'far', get: (path: string) => (path === '_distance' ? 1.4 : null) },
-        { id: 'opposite', get: (path: string) => (path === '_distance' ? 1.9 : null) },
+        { id: 'direct', get: (path: string) => (path === '_distance' ? 0.27 : null) },
+        { id: 'related', get: (path: string) => (path === '_distance' ? 0.33 : null) },
+        { id: 'borderline', get: (path: string) => (path === '_distance' ? 0.42 : null) },
+        { id: 'unrelated', get: (path: string) => (path === '_distance' ? 0.55 : null) },
       ],
     });
 
@@ -149,7 +149,7 @@ describe('searchArticles callable', () => {
       buildRequest({ auth: { uid: 'u1' }, data: { query: 'unrelated' } }) as any,
     );
 
-    expect(result.results.map((r) => r.articleId)).toEqual(['close', 'mid']);
+    expect(result.results.map((r) => r.articleId)).toEqual(['direct', 'related']);
   });
 
   it('uses default limit of 10 when not provided', async () => {

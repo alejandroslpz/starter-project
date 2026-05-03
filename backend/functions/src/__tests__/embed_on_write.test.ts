@@ -31,7 +31,11 @@ jest.mock('../ai/factory', () => ({
 }));
 
 import { handleArticleWrite } from '../article/embed_on_write';
-import { ARTICLE_TEXT_FIELD_SEPARATOR, sha256, composeArticleText } from '../shared/article_text';
+import {
+  ARTICLE_TEXT_FIELD_SEPARATOR,
+  composeArticleText,
+  embeddingSourceHash,
+} from '../shared/article_text';
 
 describe('embedArticleOnWrite', () => {
   beforeEach(() => {
@@ -77,7 +81,7 @@ describe('embedArticleOnWrite', () => {
 
   it('skips when embeddingSourceHash matches the computed hash', async () => {
     const composed = composeArticleText({ title: 'Sample', description: 'Description', content: 'Body' });
-    const knownHash = sha256(composed);
+    const knownHash = embeddingSourceHash(composed, 'gemini-embedding-001');
 
     await handleArticleWrite(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,6 +89,23 @@ describe('embedArticleOnWrite', () => {
     );
     expect(mockEmbed).not.toHaveBeenCalled();
     expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it('re-embeds when stored hash was computed for a different model (provider swap path)', async () => {
+    const composed = composeArticleText({ title: 'Sample', description: 'Description', content: 'Body' });
+    const oldModelHash = embeddingSourceHash(composed, 'text-embedding-004');
+    const fakeVector = new Array(768).fill(0.4);
+    mockEmbed.mockResolvedValue(fakeVector);
+
+    await handleArticleWrite(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      buildEvent({ status: 'published', isDeleted: false, title: 'Sample', description: 'Description', content: 'Body', embeddingSourceHash: oldModelHash }) as any,
+    );
+
+    expect(mockEmbed).toHaveBeenCalledTimes(1);
+    expect(mockSet).toHaveBeenCalledTimes(1);
+    const newHash = mockSet.mock.calls[0][0].embeddingSourceHash as string;
+    expect(newHash).toBe(embeddingSourceHash(composed, 'gemini-embedding-001'));
   });
 
   it('embeds and writes the 4 fields when status=published and hash differs', async () => {
@@ -96,7 +117,7 @@ describe('embedArticleOnWrite', () => {
 
     expect(mockEmbed).toHaveBeenCalledTimes(1);
     const expectedText = `Sample${ARTICLE_TEXT_FIELD_SEPARATOR}Description${ARTICLE_TEXT_FIELD_SEPARATOR}Body`;
-    expect(mockEmbed).toHaveBeenCalledWith(expectedText);
+    expect(mockEmbed).toHaveBeenCalledWith(expectedText, 'document');
 
     expect(mockSet).toHaveBeenCalledTimes(1);
     const [payload, options] = mockSet.mock.calls[0];
@@ -115,12 +136,13 @@ describe('embedArticleOnWrite', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await handleArticleWrite(buildEvent({ status: 'published', isDeleted: false, title: 'T', description: 'D', content: longContent }) as any);
 
-    const embedArg = mockEmbed.mock.calls[0][0] as string;
+    const [embedArg, embedKind] = mockEmbed.mock.calls[0] as [string, string];
     expect(embedArg.length).toBe(8000);
+    expect(embedKind).toBe('document');
 
     const writtenHash = mockSet.mock.calls[0][0].embeddingSourceHash as string;
-    const fullText = `T${ARTICLE_TEXT_FIELD_SEPARATOR}D${ARTICLE_TEXT_FIELD_SEPARATOR}` + longContent;
-    expect(writtenHash).toBe(sha256(fullText));
+    const fullComposed = `T${ARTICLE_TEXT_FIELD_SEPARATOR}D${ARTICLE_TEXT_FIELD_SEPARATOR}` + longContent;
+    expect(writtenHash).toBe(embeddingSourceHash(fullComposed, 'gemini-embedding-001'));
   });
 
   it('handles missing description/content gracefully (treat as empty)', async () => {
@@ -131,7 +153,7 @@ describe('embedArticleOnWrite', () => {
     await handleArticleWrite(buildEvent({ status: 'published', isDeleted: false, title: 'OnlyTitle' }) as any);
 
     const expectedText = `OnlyTitle${ARTICLE_TEXT_FIELD_SEPARATOR}${ARTICLE_TEXT_FIELD_SEPARATOR}`;
-    expect(mockEmbed).toHaveBeenCalledWith(expectedText);
+    expect(mockEmbed).toHaveBeenCalledWith(expectedText, 'document');
     expect(mockSet).toHaveBeenCalledTimes(1);
   });
 });

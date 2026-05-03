@@ -9,7 +9,7 @@ import { logger } from 'firebase-functions/v2';
 import { getEmbeddingProvider } from '../ai/factory';
 import {
   composeArticleText,
-  sha256,
+  embeddingSourceHash,
   truncateForEmbed,
 } from '../shared/article_text';
 import { GEMINI_API_KEY } from '../shared/secrets';
@@ -69,7 +69,7 @@ export async function handleBackfillRequest(
         description: data.description,
         content: data.content,
       });
-      const computedHash = sha256(composed);
+      const computedHash = embeddingSourceHash(composed, provider.modelName);
 
       if (data.embeddingSourceHash === computedHash) {
         skipped++;
@@ -77,7 +77,7 @@ export async function handleBackfillRequest(
       }
 
       try {
-        const vector = await provider.embed(truncateForEmbed(composed));
+        const vector = await provider.embed(truncateForEmbed(composed), 'document');
         await doc.ref.set(
           {
             embedding: FieldValue.vector(vector),
