@@ -19,21 +19,39 @@ Platform requirements:
 - **Android**: minSdkVersion 23 (Android 6.0+)
 - **iOS**: minimum deployment target 15.0
 
-### Run commands
+### Environment file (one-time setup)
 
-Using the provided wrapper script (reads `NEWS_API_KEY` from your environment):
+The app reads compile-time secrets from `env.json` via Flutter's
+`--dart-define-from-file`. The file is gitignored — copy the example on
+first checkout and fill in your local values:
 
 ```sh
 cd frontend
-NEWS_API_KEY=<your-newsapi-key> sh scripts/run.sh
+cp env.example.json env.json
+# Edit env.json and replace placeholder values with your actual keys
+```
+
+### Run commands
+
+Wrapper script (recommended — picks up `env.json` automatically):
+
+```sh
+cd frontend
+sh scripts/run.sh
 ```
 
 Or directly with Flutter:
 
 ```sh
-/Users/aleeslpz/fvm/default/bin/flutter run \
-  --dart-define=NEWS_API_KEY=<your-newsapi-key>
+flutter run --dart-define-from-file=env.json
 ```
+
+For IDEs:
+
+- **VS Code**: add `"toolArgs": ["--dart-define-from-file=env.json"]` to your
+  `.vscode/launch.json` configuration.
+- **Android Studio / IntelliJ**: open Run > Edit Configurations… and add
+  `--dart-define-from-file=env.json` to the **Additional run args** field.
 
 If `NEWS_API_KEY` is missing or empty, the app will fail fast at boot with an assertion error naming the missing variable.
 

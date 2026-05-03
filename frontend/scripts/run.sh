@@ -1,6 +1,12 @@
 #!/bin/sh
-# Run the app with the required dart-define flags.
-# Usage: NEWS_API_KEY=<your-key> sh scripts/run.sh [flutter run args]
+# Run the app with environment variables loaded from env.json.
+#
+# Usage:
+#   sh scripts/run.sh [flutter run args]
+#
+# First-time setup:
+#   1. cp env.example.json env.json
+#   2. Edit env.json to fill in your local values (NEWS_API_KEY, etc.)
 #
 # Prerequisites:
 #   - frontend/lib/firebase_options.dart must exist (run flutterfire configure)
@@ -8,10 +14,10 @@
 #   - frontend/ios/Runner/GoogleService-Info.plist must exist (iOS builds)
 set -e
 
-if [ -z "$NEWS_API_KEY" ]; then
-  echo "ERROR: NEWS_API_KEY environment variable is not set."
-  echo "Usage: NEWS_API_KEY=<your-key> sh scripts/run.sh [flutter run args]"
+if [ ! -f env.json ]; then
+  echo "ERROR: env.json not found in $(pwd)."
+  echo "First-time setup: cp env.example.json env.json and fill in values."
   exit 1
 fi
 
-flutter run --dart-define=NEWS_API_KEY="$NEWS_API_KEY" "$@"
+flutter run --dart-define-from-file=env.json "$@"

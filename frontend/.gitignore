@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 coverage/
+
+# Local environment file with --dart-define values (per-developer secrets).
+# Track env.example.json instead and copy it to env.json on first checkout.
+env.json
