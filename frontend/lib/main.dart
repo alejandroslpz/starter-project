@@ -6,6 +6,7 @@ import 'package:news_app_clean_architecture/config/routes/app_router.dart';
 import 'package:news_app_clean_architecture/core/constants/constants.dart';
 import 'package:news_app_clean_architecture/core/usecase/usecase.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/bootstrap_auth.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
@@ -75,15 +76,18 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<AuthBloc>.value(
-      value: _authBloc,
-      child: BlocProvider<RemoteArticlesBloc>(
-        create: (context) => sl()..add(const GetArticles()),
-        child: MaterialApp.router(
-          debugShowCheckedModeBanner: false,
-          theme: theme(),
-          routerConfig: _router,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<RemoteArticlesBloc>(
+          create: (context) => sl()..add(const GetArticles()),
         ),
+        BlocProvider<FeedBloc>.value(value: sl<FeedBloc>()),
+      ],
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: theme(),
+        routerConfig: _router,
       ),
     );
   }
