@@ -107,6 +107,32 @@ void main() {
       });
     });
 
+    group('localizedMessage', () {
+      test('FirestoreException returns non-empty localizedMessage', () {
+        const exception = FirestoreException(message: 'db error');
+
+        expect(exception.localizedMessage, isNotEmpty);
+      });
+
+      test('StorageException returns non-empty localizedMessage', () {
+        const exception = StorageException(message: 'upload failed');
+
+        expect(exception.localizedMessage, isNotEmpty);
+      });
+
+      test('AuthException returns non-empty localizedMessage', () {
+        const exception = AuthException(message: 'not authenticated');
+
+        expect(exception.localizedMessage, isNotEmpty);
+      });
+
+      test('UnknownException returns non-empty localizedMessage', () {
+        const exception = UnknownException(message: 'unexpected');
+
+        expect(exception.localizedMessage, isNotEmpty);
+      });
+    });
+
     group('Exhaustive switch', () {
       test('sealed switch covers all subtypes without default branch', () {
         // If a new subtype is added to AppException, this switch
