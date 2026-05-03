@@ -148,7 +148,18 @@ class _FeedBodyState extends State<_FeedBody> {
                   context.read<FeedBloc>().add(FilterChangedEvent(f)),
             ),
             const _LastDraftCard(),
-            if (feedState.error != null)
+            if (feedState.searchFallbackActive)
+              Container(
+                width: double.infinity,
+                color: Colors.amber.shade100,
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  'Semantic search unavailable — showing keyword matches.',
+                  style:
+                      TextStyle(color: Colors.amber.shade900, fontSize: 12),
+                ),
+              )
+            else if (feedState.error != null)
               Container(
                 width: double.infinity,
                 color: Colors.red.shade100,

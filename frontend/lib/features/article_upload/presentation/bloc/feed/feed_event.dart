@@ -82,3 +82,27 @@ final class CommunityFeedFailedEvent extends FeedEvent {
   @override
   List<Object?> get props => [error];
 }
+
+final class SearchExecutedEvent extends FeedEvent {
+  final String query;
+  const SearchExecutedEvent(this.query);
+
+  @override
+  List<Object?> get props => [query];
+}
+
+final class SearchSucceededEvent extends FeedEvent {
+  final List<String> articleIds;
+  const SearchSucceededEvent(this.articleIds);
+
+  @override
+  List<Object?> get props => [articleIds];
+}
+
+final class SearchFailedEvent extends FeedEvent {
+  final AppException error;
+  const SearchFailedEvent(this.error);
+
+  @override
+  List<Object?> get props => [error];
+}

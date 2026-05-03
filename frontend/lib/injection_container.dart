@@ -60,6 +60,12 @@ import 'features/daily_news/domain/use_cases/get_saved_article.dart';
 import 'features/daily_news/domain/use_cases/remove_article.dart';
 import 'features/daily_news/domain/use_cases/save_article.dart';
 import 'features/daily_news/presentation/bloc/article/local/local_article_bloc.dart';
+import 'package:news_app_clean_architecture/features/search/domain/use_cases/semantic_search.dart';
+import 'package:news_app_clean_architecture/features/search/domain/repository/search_repository.dart';
+import 'package:news_app_clean_architecture/features/search/data/repository/search_repository_impl.dart';
+import 'package:news_app_clean_architecture/features/search/data/data_sources/remote/article_search_service.dart';
+import 'package:news_app_clean_architecture/features/search/data/data_sources/remote/article_search_service_impl.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 final sl = GetIt.instance;
 
@@ -266,11 +272,28 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  sl.registerLazySingleton<FirebaseFunctions>(
+    () => FirebaseFunctions.instance,
+  );
+
+  sl.registerLazySingleton<ArticleSearchService>(
+    () => ArticleSearchServiceImpl(sl<FirebaseFunctions>()),
+  );
+
+  sl.registerLazySingleton<SearchRepository>(
+    () => SearchRepositoryImpl(sl<ArticleSearchService>()),
+  );
+
+  sl.registerLazySingleton<SemanticSearchUseCase>(
+    () => SemanticSearchUseCase(sl<SearchRepository>()),
+  );
+
   sl.registerLazySingleton<FeedBloc>(
     () => FeedBloc(
       sl<GetArticleUseCase>(),
       sl<GetFitnessArticlesUseCase>(),
       sl<WatchCommunityFeedUseCase>(),
+      sl<SemanticSearchUseCase>(),
     ),
   );
 

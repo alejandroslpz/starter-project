@@ -20,6 +20,8 @@ final class FeedState extends Equatable {
   final bool hasMoreNews;
   final bool hasMoreFitness;
   final AppException? error;
+  final List<String>? searchResults;
+  final bool searchFallbackActive;
 
   const FeedState({
     List<ArticleEntity> newsArticles = const [],
@@ -35,6 +37,8 @@ final class FeedState extends Equatable {
     this.hasMoreNews = true,
     this.hasMoreFitness = true,
     this.error,
+    this.searchResults,
+    this.searchFallbackActive = false,
   })  : _newsArticles = newsArticles,
         _fitnessArticles = fitnessArticles,
         _communityArticles = communityArticles;
@@ -47,6 +51,33 @@ final class FeedState extends Equatable {
       List.unmodifiable(_fitnessArticles);
 
   List<FeedItem> get items {
+    // Active search: hybrid path. Community articles come from semantic
+    // search (back-end vector match); NewsAPI articles fall back to
+    // client-side substring on title/description because they're external
+    // and don't carry embeddings. Both contribute to the same result list.
+    if (searchResults != null) {
+      final results = <FeedItem>[];
+
+      final byId = {for (final a in _communityArticles) a.id: a};
+      for (final id in searchResults!) {
+        final article = byId[id];
+        if (article != null) results.add(JournalistFeedItem(article));
+      }
+
+      final q = searchQuery.trim().toLowerCase();
+      if (q.isNotEmpty) {
+        bool matches(ArticleEntity a) =>
+            (a.title?.toLowerCase().contains(q) ?? false) ||
+            (a.description?.toLowerCase().contains(q) ?? false);
+        results.addAll(_newsArticles.where(matches).map(NewsApiFeedItem.new));
+        results
+            .addAll(_fitnessArticles.where(matches).map(NewsApiFeedItem.new));
+      }
+
+      return results;
+    }
+
+    // Filter-chip path (no active search).
     final filtered = <FeedItem>[];
 
     switch (filter) {
@@ -64,9 +95,15 @@ final class FeedState extends Equatable {
 
     filtered.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
 
-    if (searchQuery.isEmpty) return filtered;
-    final q = searchQuery.toLowerCase();
-    return filtered.where((i) => i.title.toLowerCase().contains(q)).toList();
+    // Fallback when semantic search itself failed (callable unreachable,
+    // rate-limited, unauthenticated). Substring across the entire visible
+    // feed keeps the feature usable on degraded backends.
+    if (searchFallbackActive && searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.toLowerCase();
+      return filtered.where((i) => i.title.toLowerCase().contains(q)).toList();
+    }
+
+    return filtered;
   }
 
   FeedState copyWith({
@@ -83,6 +120,8 @@ final class FeedState extends Equatable {
     bool? hasMoreNews,
     bool? hasMoreFitness,
     Object? error = _sentinel,
+    Object? searchResults = _sentinel,
+    bool? searchFallbackActive,
   }) {
     return FeedState(
       newsArticles: newsArticles ?? _newsArticles,
@@ -98,6 +137,10 @@ final class FeedState extends Equatable {
       hasMoreNews: hasMoreNews ?? this.hasMoreNews,
       hasMoreFitness: hasMoreFitness ?? this.hasMoreFitness,
       error: error == _sentinel ? this.error : error as AppException?,
+      searchResults: searchResults == _sentinel
+          ? this.searchResults
+          : searchResults as List<String>?,
+      searchFallbackActive: searchFallbackActive ?? this.searchFallbackActive,
     );
   }
 
@@ -116,6 +159,8 @@ final class FeedState extends Equatable {
         hasMoreNews,
         hasMoreFitness,
         error,
+        searchResults,
+        searchFallbackActive,
       ];
 }
 
