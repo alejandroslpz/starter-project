@@ -123,7 +123,10 @@ Core content document. Groups: NewsAPI parity, Symmetry-aligned, authorship, sou
 | `language` | string | REQUIRED | ISO 639-1 (e.g. `"es"`, `"en"`) |
 | `readingTimeMinutes` | number | REQUIRED | calculated by Cloud Function on write |
 | `location` | GeoPoint | OPTIONAL | |
-| `embedding` | Vector | FUTURE (`ai-embeddings`) | 768 dims, cosine distance, Gemini `text-embedding-004`; requires `cloud_firestore ^5.4.0` |
+| `embedding` | VectorValue (768 floats) | yes | Populated by `embedArticleOnWrite` Cloud Function within ~30s after publish. Absent on docs that have never reached `status='published'`. |
+| `embeddingSourceHash` | string | yes | sha256 hex of `title  description  content` (Start-of-Header separator, full text, pre-truncation). Used by the trigger for idempotency: skips re-embedding when source text is unchanged. |
+| `embeddingProvider` | string | yes | Identifier for the embedding model in use, e.g. `'gemini-text-embedding-004'`. Useful when migrating between providers. |
+| `embeddingDimensions` | number | yes | Vector length, e.g. `768`. Must match the active provider AND the deployed vector index. |
 | `status` | string | REQUIRED | enum: `"published"` \| `"archived"` |
 | `createdAt` | Timestamp | REQUIRED | server-side |
 | `updatedAt` | Timestamp | REQUIRED | server-side, updated on every write |
@@ -133,7 +136,7 @@ Core content document. Groups: NewsAPI parity, Symmetry-aligned, authorship, sou
 | `deletedAt` | Timestamp | OPTIONAL | set to `serverTimestamp()` when `isDeleted` transitions to `true`; `null` for live articles |
 | `searchHitCount` | number | FUTURE (`ai-embeddings`) | default 0; incremented by semantic search Cloud Function |
 
-**Field count**: 23 (note: `aiSummary` is excluded from main table — see [Future Fields](#future-fields))
+**Field count**: 26 (note: `aiSummary` is excluded from main table — see [Future Fields](#future-fields))
 
 #### Soft Delete
 
@@ -339,7 +342,6 @@ These fields are **documented to reserve names** — they are NOT created by thi
 
 | Field | Type | Owning change |
 |-------|------|---------------|
-| `embedding` | Vector (768 dims, cosine) | `ai-embeddings` |
 | `searchHitCount` | number | `ai-embeddings` |
 | `aiSummary` | string | `ai-summarization` (future Gemini summary) |
 | `editHistory` | subcollection | `article-edit` (revision history) |
@@ -350,3 +352,62 @@ These fields are **documented to reserve names** — they are NOT created by thi
 |-------|------|---------------|
 | `userEmbedding` | Vector (768 dims) | `ai-embeddings` (averaged from read history) |
 | `feedbackSignals` | map | `ai-embeddings` (like/dislike per article) |
+
+---
+
+## Embedding lifecycle
+
+Articles gain four embedding-related fields when the `embedArticleOnWrite`
+Cloud Function fires (or when an admin runs `backfillEmbeddings`):
+
+- `embedding` — a 768-dimension vector produced by the active embedding
+  provider (currently Gemini `text-embedding-004`).
+- `embeddingSourceHash` — sha256 hex of the concatenated
+  `title  description  content` text (Start-of-Header separator, full
+  text, pre-truncation). The trigger skips re-embedding when this hash
+  matches the doc's stored hash, preventing write loops and unnecessary
+  API calls.
+- `embeddingProvider` — identifier of the model in use. Future provider
+  swaps (OpenAI, Voyage, Anthropic) update this value and trigger a
+  full backfill if the dimension changes.
+- `embeddingDimensions` — vector length. MUST match both the active
+  provider and the deployed Firestore vector index.
+
+The trigger is idempotent and only embeds articles where
+`status == 'published'` and `isDeleted == false`. Soft-deleted articles
+keep their embedding data on disk but are excluded from search results
+by the `searchArticles` callable.
+
+### Provider abstraction
+
+Embeddings are produced via a TypeScript `EmbeddingProvider` interface in
+`backend/functions/src/ai/embedding_provider.ts`. The active provider is
+selected by a single factory function (`backend/functions/src/ai/factory.ts`).
+Switching providers (Gemini → OpenAI / Voyage / Anthropic) is a one-file
+change to the factory, plus a re-deploy and a backfill if the new
+provider's vector dimension differs from the old one. Business logic
+inside the trigger, the search callable, and the backfill callable
+depends only on the interface — never on the provider's SDK directly.
+This convention is documented in engram observation #408 and applies
+to any future AI/ML integration.
+
+### Vector index
+
+A Firestore vector index is declared in `backend/firestore.indexes.json`:
+
+```json
+{
+  "vectorIndexes": [
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fieldPath": "embedding",
+      "vectorConfig": { "dimension": 768, "flat": {} }
+    }
+  ]
+}
+```
+
+The index is required by `findNearest` queries used in the
+`searchArticles` callable. Index build can take several minutes after
+deploy on a populated collection.
