@@ -17,7 +17,30 @@
         { "fieldPath": "isDeleted", "order": "ASCENDING" },
         { "fieldPath": "publishedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isDeleted", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        {
+          "fieldPath": "embedding",
+          "vectorConfig": { "dimension": 768, "flat": {} }
+        }
+      ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [],
+  "vectorIndexes": [
+    {
+      "collectionGroup": "articles",
+      "queryScope": "COLLECTION",
+      "fieldPath": "embedding",
+      "vectorConfig": {
+        "dimension": 768,
+        "flat": {}
+      }
+    }
+  ]
 }
