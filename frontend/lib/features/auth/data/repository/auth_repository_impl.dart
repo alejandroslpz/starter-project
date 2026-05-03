@@ -55,9 +55,15 @@ class AuthRepositoryImpl implements AuthRepository {
     SignUpParams params,
   ) async {
     try {
-      final user =
+      final created =
           await _authService.signUpWithEmail(params.email, params.password);
-      final entity = AuthUserModel.fromRawData(user).toEntity();
+      // FirebaseAuth.createUserWithEmailAndPassword does NOT accept a
+      // displayName — it must be set via updateDisplayName + reload after
+      // creation. Without this step the FirebaseAuth profile and the
+      // Firestore mirror would both store a null displayName.
+      final updated =
+          await _authService.updateDisplayName(created, params.displayName);
+      final entity = AuthUserModel.fromRawData(updated).toEntity();
       await _docService.upsertUser(entity);
       return DataSuccess(entity);
     } on AppException catch (e) {
@@ -149,5 +155,12 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthUserEntity? get currentUser {
     final user = _authService.currentUser;
     return user != null ? AuthUserModel.fromRawData(user).toEntity() : null;
+  }
+
+  @override
+  Future<AuthUserEntity?> validateCachedUser() async {
+    final user = await _authService.reloadCurrentUser();
+    if (user == null) return null;
+    return AuthUserModel.fromRawData(user).toEntity();
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/params/sign_in_params.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
@@ -76,6 +77,8 @@ class _LoginPageState extends State<LoginPage> {
               SnackBar(content: Text(state.error.localizedMessage)),
             );
             context.read<AuthBloc>().add(ErrorDismissedEvent());
+          } else if (state is AuthAuthenticated) {
+            context.go('/');
           }
         },
         builder: (context, state) {
@@ -137,6 +140,18 @@ class _LoginPageState extends State<LoginPage> {
                           .read<AuthBloc>()
                           .add(SignInWithGoogleEvent()),
                     ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Don't have an account?"),
+                      TextButton(
+                        onPressed:
+                            isLoading ? null : () => context.push('/signup'),
+                        child: const Text('Sign up'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),

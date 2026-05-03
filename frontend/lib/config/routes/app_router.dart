@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/pages/login/login_page.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/pages/signup/signup_page.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
@@ -30,8 +31,16 @@ class AppRouter {
     return GoRouter(
       initialLocation: '/',
       refreshListenable: GoRouterRefreshStream(authBloc.stream),
-      // redirect: returns null for all routes in v1 (design D7)
-      redirect: (context, state) => null,
+      redirect: (context, state) {
+        final authState = authBloc.state;
+        final loc = state.matchedLocation;
+        // Once authenticated, /login and /signup are no-ops — bounce home.
+        if (authState is AuthAuthenticated &&
+            (loc == '/login' || loc == '/signup')) {
+          return '/';
+        }
+        return null;
+      },
       routes: [
         GoRoute(
           path: '/',

@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:get_it/get_it.dart';
 import 'package:dio/dio.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:news_app_clean_architecture/firebase_options.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/firebase_auth_service.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/firebase_auth_service_impl.dart';
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/google_sign_in_service.dart';
@@ -12,6 +13,7 @@ import 'package:news_app_clean_architecture/features/auth/data/data_sources/remo
 import 'package:news_app_clean_architecture/features/auth/data/data_sources/remote/user_document_service_impl.dart';
 import 'package:news_app_clean_architecture/features/auth/data/repository/auth_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/repository/auth_repository.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/bootstrap_auth.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/send_password_reset.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_anonymously.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_with_email.dart';
@@ -85,7 +87,21 @@ Future<void> initializeDependencies() async {
   // -----------------------------------------------------------------------
 
   // Auth services
-  sl.registerLazySingleton<GoogleSignIn>(() => GoogleSignIn(scopes: ['email']));
+  // iOS workaround: GoogleSignIn iOS SDK 8.0 (transitively pulled by
+  // google_sign_in_ios 5.9.0) requires the OAuth clientId to be set
+  // explicitly before signIn — auto-detection from GoogleService-Info.plist
+  // was removed in 8.0 and the Flutter plugin doesn't bridge it. Without
+  // this, GIDSignIn throws an NSException at GIDSignIn.m:575 and the app
+  // hard-crashes (SIGABRT). Reading the value from firebase_options.dart
+  // keeps the binding tied to whatever flutterfire configure produced.
+  // On Android the field is null, which is correct — Android resolves
+  // the client via SHA-1 fingerprint + package name.
+  sl.registerLazySingleton<GoogleSignIn>(
+    () => GoogleSignIn(
+      clientId: DefaultFirebaseOptions.currentPlatform.iosClientId,
+      scopes: ['email'],
+    ),
+  );
   sl.registerLazySingleton<FirebaseAuthService>(
     () => FirebaseAuthServiceImpl(sl()),
   );
@@ -120,6 +136,9 @@ Future<void> initializeDependencies() async {
   );
   sl.registerLazySingleton<WatchAuthStateUseCase>(
     () => WatchAuthStateUseCase(sl()),
+  );
+  sl.registerLazySingleton<BootstrapAuthUseCase>(
+    () => BootstrapAuthUseCase(sl()),
   );
 
   // AuthBloc — lazySingleton (global state, NOT factory — design D12)

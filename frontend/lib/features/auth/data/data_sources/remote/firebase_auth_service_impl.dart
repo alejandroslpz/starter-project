@@ -76,7 +76,35 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
   }
 
   @override
+  Future<User> updateDisplayName(User user, String displayName) async {
+    try {
+      await user.updateDisplayName(displayName);
+      await user.reload();
+      // After reload, _firebaseAuth.currentUser carries the refreshed profile.
+      return _firebaseAuth.currentUser ?? user;
+    } on FirebaseAuthException catch (e) {
+      throw _mapException(e);
+    }
+  }
+
+  @override
   User? get currentUser => _firebaseAuth.currentUser;
+
+  @override
+  Future<User?> reloadCurrentUser() async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) return null;
+    try {
+      await user.reload();
+      // Return the refreshed instance from FirebaseAuth (post-reload).
+      return _firebaseAuth.currentUser;
+    } on FirebaseAuthException catch (_) {
+      // Server reports the user is gone or disabled. Wipe local state so
+      // the bloc can bootstrap a fresh anonymous identity.
+      await _firebaseAuth.signOut();
+      return null;
+    }
+  }
 
   @override
   Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();

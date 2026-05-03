@@ -14,14 +14,18 @@ import 'package:news_app_clean_architecture/features/auth/domain/use_cases/watch
 import 'auth_event.dart';
 import 'auth_state.dart';
 
-/// Global auth BLoC — single source of truth for auth state (design D1).
+/// Global auth BLoC — observer of [FirebaseAuth.authStateChanges].
 ///
-/// Key behaviors:
-/// - Each Sign* handler emits [AuthAuthenticating] SYNCHRONOUSLY as first
-///   line (design D11 — optimistic UI).
-/// - [WatchAuthStateEvent] subscribes to the auth stream; null emission
-///   triggers auto-anonymous sign-in (design D10).
-/// - Stream subscription is cancelled in [close()] to prevent leaks.
+/// **Bootstrap responsibility lives in `main()`**, not here. By the time the
+/// bloc receives [WatchAuthStateEvent] the auth stream already has a stable
+/// initial value (anonymous user or signed-in user). The bloc therefore only
+/// translates stream emissions to bloc states; it never calls
+/// `signInAnonymously` proactively. This avoids the FlutterFire #3053
+/// behaviour where each call to `signInAnonymously` on Android creates a new
+/// user even if one already exists.
+///
+/// Sign-in/sign-up/sign-out events do their own one-shot work and let the
+/// auth stream propagate the resulting state.
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final WatchAuthStateUseCase _watchAuthState;
   final SignInAnonymouslyUseCase _signInAnonymously;
@@ -32,6 +36,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SendPasswordResetUseCase _sendPasswordReset;
 
   StreamSubscription<dynamic>? _authSubscription;
+
+  /// Becomes true after the first [WatchAuthStateEvent] handler subscribes.
+  /// Subsequent dispatches (caused by widget rebuilds re-issuing the event)
+  /// become no-ops; otherwise each duplicate event spawns its own stream
+  /// subscription.
+  bool _watchStarted = false;
 
   AuthBloc(
     this._watchAuthState,
@@ -60,21 +70,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     WatchAuthStateEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating());
+    if (_watchStarted) return;
+    _watchStarted = true;
 
     await emit.onEach<dynamic>(
       _watchAuthState.call(params: const NoParams()),
       onData: (user) {
         if (user == null) {
-          // No user — trigger anonymous sign-in
-          add(SignInAnonymouslyEvent());
+          emit(const AuthUnauthenticated());
+        } else if (user.isAnonymous) {
+          emit(AuthAnonymous(user));
         } else {
-          // User is signed in — determine state from entity
-          if (user.isAnonymous) {
-            emit(AuthAnonymous(user));
-          } else {
-            emit(AuthAuthenticated(user));
-          }
+          emit(AuthAuthenticated(user));
         }
       },
       onError: (error, stackTrace) {
@@ -92,27 +99,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SignInAnonymouslyEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating()); // optimistic, synchronous
+    final prevState = state;
+    emit(const AuthAuthenticating());
 
     final result = await _signInAnonymously.call(params: const NoParams());
-    if (result is DataSuccess) {
-      emit(AuthAnonymous(result.data!));
-    } else if (result is DataFailed) {
-      emit(AuthError(result.error!, previousState: state));
+    if (result is DataFailed) {
+      emit(AuthError(result.error!, previousState: prevState));
     }
+    // On success the stream will emit the new user and the watch handler
+    // will translate it to AuthAnonymous; no explicit emit needed here.
   }
 
   Future<void> _onSignInWithEmail(
     SignInWithEmailEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating()); // optimistic, synchronous
+    final prevState = state;
+    emit(const AuthAuthenticating());
 
     final result = await _signInWithEmail.call(params: event.params);
-    if (result is DataSuccess) {
-      emit(AuthAuthenticated(result.data!));
-    } else if (result is DataFailed) {
-      emit(AuthError(result.error!, previousState: state));
+    if (result is DataFailed) {
+      emit(AuthError(result.error!, previousState: prevState));
     }
   }
 
@@ -120,13 +127,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SignUpWithEmailEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating()); // optimistic, synchronous
+    final prevState = state;
+    emit(const AuthAuthenticating());
 
     final result = await _signUpWithEmail.call(params: event.params);
-    if (result is DataSuccess) {
-      emit(AuthAuthenticated(result.data!));
-    } else if (result is DataFailed) {
-      emit(AuthError(result.error!, previousState: state));
+    if (result is DataFailed) {
+      emit(AuthError(result.error!, previousState: prevState));
     }
   }
 
@@ -134,24 +140,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SignInWithGoogleEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating()); // optimistic, synchronous
+    final prevState = state;
+    emit(const AuthAuthenticating());
 
     final result = await _signInWithGoogle.call(params: const NoParams());
-    if (result is DataSuccess) {
-      emit(AuthAuthenticated(result.data!));
-    } else if (result is DataFailed) {
+    if (result is DataFailed) {
       final error = result.error!;
       if (error is AuthException && error.code == 'popup-closed-by-user') {
-        // Google sign-in cancelled — revert to anonymous without showing error
-        final prevState = state;
-        if (prevState is AuthAnonymous) {
-          emit(AuthAnonymous(prevState.user));
-        } else {
-          // Re-trigger anonymous if not already anonymous
-          add(SignInAnonymouslyEvent());
-        }
+        // Cancellation — silently revert to previous state.
+        emit(prevState);
       } else {
-        emit(AuthError(error, previousState: state));
+        emit(AuthError(error, previousState: prevState));
       }
     }
   }
@@ -160,23 +159,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SignOutEvent event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthAuthenticating()); // optimistic, synchronous
+    final prevState = state;
+    emit(const AuthAuthenticating());
 
     final result = await _signOut.call(params: const NoParams());
-    if (result is DataSuccess) {
-      emit(const AuthUnauthenticated());
-      // Auto re-anonymous (design D1, SD3)
-      add(SignInAnonymouslyEvent());
-    } else if (result is DataFailed) {
-      emit(AuthError(result.error!, previousState: state));
+    if (result is DataFailed) {
+      emit(AuthError(result.error!, previousState: prevState));
+      return;
     }
+    // After explicit sign-out, drop straight back into anonymous mode so
+    // the user can keep browsing the feed without bouncing through /login
+    // (Symmetry "anonymous-first" UX, design D1 / SD3).
+    add(SignInAnonymouslyEvent());
   }
 
   Future<void> _onSendPasswordReset(
     SendPasswordResetEvent event,
     Emitter<AuthState> emit,
   ) async {
-    // No state transition on success — just fire and forget
     await _sendPasswordReset.call(params: event.email);
   }
 
