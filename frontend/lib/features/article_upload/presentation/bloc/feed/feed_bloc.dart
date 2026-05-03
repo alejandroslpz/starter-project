@@ -9,6 +9,8 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/entities/
 import 'package:news_app_clean_architecture/features/daily_news/domain/params/page_params.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_fitness_articles.dart';
+import 'package:news_app_clean_architecture/features/search/domain/params/semantic_search_params.dart';
+import 'package:news_app_clean_architecture/features/search/domain/use_cases/semantic_search.dart';
 import 'feed_event.dart';
 import 'feed_state.dart';
 
@@ -19,19 +21,32 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
   final GetArticleUseCase _getNewsArticles;
   final GetFitnessArticlesUseCase _getFitnessArticles;
   final WatchCommunityFeedUseCase _watchCommunityFeed;
+  final SemanticSearchUseCase _semanticSearch;
 
   StreamSubscription<List<JournalistArticleEntity>>? _communitySub;
+  Timer? _searchDebounce;
 
   FeedBloc(
     this._getNewsArticles,
     this._getFitnessArticles,
     this._watchCommunityFeed,
+    this._semanticSearch,
   ) : super(const FeedState()) {
     on<LoadFeedEvent>(_onLoad);
     on<LoadMoreEvent>(_onLoadMore);
     on<FilterChangedEvent>((e, emit) => emit(state.copyWith(filter: e.filter)));
-    on<SearchQueryChangedEvent>(
-        (e, emit) => emit(state.copyWith(searchQuery: e.query)));
+    on<SearchQueryChangedEvent>(_onSearchQueryChanged);
+    on<SearchExecutedEvent>(_onSearchExecuted);
+    on<SearchSucceededEvent>((e, emit) => emit(state.copyWith(
+          searchResults: e.articleIds,
+          searchFallbackActive: false,
+          error: null,
+        )));
+    on<SearchFailedEvent>((e, emit) => emit(state.copyWith(
+          searchResults: null,
+          searchFallbackActive: true,
+          error: e.error,
+        )));
     on<NewsFeedUpdatedEvent>(
         (e, emit) => emit(state.copyWith(newsArticles: e.articles)));
     on<NewsFeedAppendedEvent>((e, emit) {
@@ -48,6 +63,43 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
         (e, emit) => emit(state.copyWith(communityArticles: e.articles)));
     on<CommunityFeedFailedEvent>(
         (e, emit) => emit(state.copyWith(error: e.error)));
+  }
+
+  void _onSearchQueryChanged(
+    SearchQueryChangedEvent event,
+    Emitter<FeedState> emit,
+  ) {
+    final trimmed = event.query.trim();
+    emit(state.copyWith(searchQuery: event.query));
+
+    _searchDebounce?.cancel();
+    if (trimmed.isEmpty) {
+      // Clear active search; revert to filter-chip behavior.
+      emit(state.copyWith(
+        searchResults: null,
+        searchFallbackActive: false,
+        error: null,
+      ));
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      add(SearchExecutedEvent(trimmed));
+    });
+  }
+
+  Future<void> _onSearchExecuted(
+    SearchExecutedEvent event,
+    Emitter<FeedState> emit,
+  ) async {
+    final result = await _semanticSearch.call(
+      params: SemanticSearchParams(query: event.query, limit: 20),
+    );
+    if (result is DataSuccess<List<String>>) {
+      add(SearchSucceededEvent(result.data ?? const []));
+    } else if (result is DataFailed<List<String>>) {
+      add(SearchFailedEvent(result.error!));
+    }
   }
 
   Future<void> _onLoad(
@@ -199,6 +251,7 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
 
   @override
   Future<void> close() {
+    _searchDebounce?.cancel();
     _communitySub?.cancel();
     return super.close();
   }
