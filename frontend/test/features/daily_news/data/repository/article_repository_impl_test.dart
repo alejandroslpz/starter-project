@@ -63,10 +63,13 @@ void main() {
       );
       final httpResponse = HttpResponse<List<ArticleModel>>(testModels, response);
 
-      when(() => mockApiService.getNewsArticles(
+      when(() => mockApiService.searchEverything(
             apiKey: any(named: 'apiKey'),
-            country: any(named: 'country'),
-            category: any(named: 'category'),
+            q: any(named: 'q'),
+            language: any(named: 'language'),
+            sortBy: any(named: 'sortBy'),
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
           )).thenAnswer((_) async => httpResponse);
 
       final result = await repository.getNewsArticles();
@@ -84,10 +87,13 @@ void main() {
         error: 'connection refused',
       );
 
-      when(() => mockApiService.getNewsArticles(
+      when(() => mockApiService.searchEverything(
             apiKey: any(named: 'apiKey'),
-            country: any(named: 'country'),
-            category: any(named: 'category'),
+            q: any(named: 'q'),
+            language: any(named: 'language'),
+            sortBy: any(named: 'sortBy'),
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
           )).thenThrow(dioError);
 
       final result = await repository.getNewsArticles();
@@ -107,10 +113,13 @@ void main() {
       final httpResponse =
           HttpResponse<List<ArticleModel>>(testModels, response);
 
-      when(() => mockApiService.getNewsArticles(
+      when(() => mockApiService.searchEverything(
             apiKey: any(named: 'apiKey'),
-            country: any(named: 'country'),
-            category: any(named: 'category'),
+            q: any(named: 'q'),
+            language: any(named: 'language'),
+            sortBy: any(named: 'sortBy'),
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
           )).thenAnswer((_) async => httpResponse);
 
       final result = await repository.getNewsArticles();
@@ -122,10 +131,13 @@ void main() {
 
     test('returns DataFailed with UnknownException when unexpected error occurs',
         () async {
-      when(() => mockApiService.getNewsArticles(
+      when(() => mockApiService.searchEverything(
             apiKey: any(named: 'apiKey'),
-            country: any(named: 'country'),
-            category: any(named: 'category'),
+            q: any(named: 'q'),
+            language: any(named: 'language'),
+            sortBy: any(named: 'sortBy'),
+            page: any(named: 'page'),
+            pageSize: any(named: 'pageSize'),
           )).thenThrow(Exception('unexpected'));
 
       final result = await repository.getNewsArticles();

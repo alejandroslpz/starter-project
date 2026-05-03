@@ -7,6 +7,7 @@ import 'package:news_app_clean_architecture/features/daily_news/data/data_source
 import 'package:news_app_clean_architecture/features/daily_news/data/models/article.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
+import 'package:news_app_clean_architecture/features/daily_news/domain/params/page_params.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/repository/article_repository.dart';
 
 import '../data_sources/remote/news_api_service.dart';
@@ -17,13 +18,48 @@ class ArticleRepositoryImpl implements ArticleRepository {
 
   ArticleRepositoryImpl(this._newsApiService, this._appDatabase);
 
+  // /everything supports historical pagination (~30 days back, max 100 results
+  // per query), unlike /top-headlines which is a finite "now" snapshot.
+  // The `q` keyword is what segments general news from fitness news.
+  static const _generalNewsQuery = 'news OR breaking OR world OR business';
+  static const _fitnessNewsQuery =
+      'fitness OR workout OR nutrition OR wellness OR exercise OR health';
+
   @override
-  Future<DataState<List<ArticleEntity>>> getNewsArticles() async {
+  Future<DataState<List<ArticleEntity>>> getNewsArticles({
+    PageParams params = const PageParams(),
+  }) {
+    return _fetchArticles(
+      query: _generalNewsQuery,
+      label: 'getNewsArticles',
+      params: params,
+    );
+  }
+
+  @override
+  Future<DataState<List<ArticleEntity>>> getFitnessNewsArticles({
+    PageParams params = const PageParams(),
+  }) {
+    return _fetchArticles(
+      query: _fitnessNewsQuery,
+      label: 'getFitnessNewsArticles',
+      params: params,
+    );
+  }
+
+  Future<DataState<List<ArticleEntity>>> _fetchArticles({
+    required String query,
+    required String label,
+    required PageParams params,
+  }) async {
     try {
-      final httpResponse = await _newsApiService.getNewsArticles(
+      final httpResponse = await _newsApiService.searchEverything(
         apiKey: newsAPIKey,
-        country: countryQuery,
-        category: categoryQuery,
+        q: query,
+        language: 'en',
+        sortBy: 'publishedAt',
+        page: params.page,
+        pageSize: params.pageSize,
       );
 
       if (httpResponse.response.statusCode == HttpStatus.ok) {
@@ -44,7 +80,7 @@ class ArticleRepositoryImpl implements ArticleRepository {
       ));
     } on Object catch (e, st) {
       return DataFailed(UnknownException(
-        message: 'Unexpected error in getNewsArticles',
+        message: 'Unexpected error in $label',
         cause: e,
         stackTrace: st,
       ));
