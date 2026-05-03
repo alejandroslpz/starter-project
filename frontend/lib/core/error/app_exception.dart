@@ -98,6 +98,19 @@ final class AuthException extends AppException {
   }
 }
 
+/// Thrown when caller-supplied input fails a precondition check.
+final class ValidationException extends AppException {
+  const ValidationException({
+    required super.message,
+    super.cause,
+    super.stackTrace,
+    super.code,
+  });
+
+  @override
+  String get localizedMessage => message;
+}
+
 /// Thrown when no other subtype applies — wraps unexpected exceptions.
 final class UnknownException extends AppException {
   const UnknownException({
