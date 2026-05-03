@@ -15,6 +15,10 @@ void main() {
   late MockFirebaseAuth mockFirebaseAuth;
   late FirebaseAuthService service;
 
+  setUpAll(() {
+    registerFallbackValue(GoogleAuthProvider.credential(idToken: 'fake'));
+  });
+
   setUp(() {
     mockFirebaseAuth = MockFirebaseAuth();
     service = FirebaseAuthServiceImpl(mockFirebaseAuth);
@@ -83,6 +87,125 @@ void main() {
 
       expect(result, isNull);
       verify(() => mockFirebaseAuth.signOut()).called(1);
+    });
+
+    // -------------------------------------------------------------------
+    // linkAnonymousWithEmailAndPassword
+    // -------------------------------------------------------------------
+    group('linkAnonymousWithEmailAndPassword', () {
+      test('happy path: calls user.linkWithCredential and returns User',
+          () async {
+        final mockUser = MockUser();
+        final mockCredential = MockUserCredential();
+        when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+        when(() => mockCredential.user).thenReturn(mockUser);
+        when(() => mockUser.linkWithCredential(any()))
+            .thenAnswer((_) async => mockCredential);
+
+        final result = await service.linkAnonymousWithEmailAndPassword(
+          email: 'link@example.com',
+          password: 'pass1234',
+        );
+
+        expect(result, equals(mockUser));
+        verify(() => mockUser.linkWithCredential(any())).called(1);
+      });
+
+      test('throws AuthException(no-current-user) when no user is signed in',
+          () async {
+        when(() => mockFirebaseAuth.currentUser).thenReturn(null);
+
+        try {
+          await service.linkAnonymousWithEmailAndPassword(
+            email: 'link@example.com',
+            password: 'pass1234',
+          );
+          fail('Expected AuthException');
+        } catch (e) {
+          expect(e, isA<AuthException>());
+          expect((e as AuthException).code, equals('no-current-user'));
+        }
+      });
+
+      test(
+          'maps FirebaseAuthException(email-already-in-use) to AuthException',
+          () async {
+        final mockUser = MockUser();
+        when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+        when(() => mockUser.linkWithCredential(any()))
+            .thenThrow(FirebaseAuthException(code: 'email-already-in-use'));
+
+        try {
+          await service.linkAnonymousWithEmailAndPassword(
+            email: 'taken@example.com',
+            password: 'pass1234',
+          );
+          fail('Expected AuthException');
+        } catch (e) {
+          expect(e, isA<AuthException>());
+          expect((e as AuthException).code, equals('email-already-in-use'));
+        }
+      });
+
+      test('maps FirebaseAuthException(weak-password) to AuthException',
+          () async {
+        final mockUser = MockUser();
+        when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+        when(() => mockUser.linkWithCredential(any()))
+            .thenThrow(FirebaseAuthException(code: 'weak-password'));
+
+        try {
+          await service.linkAnonymousWithEmailAndPassword(
+            email: 'link@example.com',
+            password: '123',
+          );
+          fail('Expected AuthException');
+        } catch (e) {
+          expect(e, isA<AuthException>());
+          expect((e as AuthException).code, equals('weak-password'));
+        }
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // linkAnonymousWithGoogleCredential
+    // -------------------------------------------------------------------
+    group('linkAnonymousWithGoogleCredential', () {
+      test('happy path: calls user.linkWithCredential and returns User',
+          () async {
+        final mockUser = MockUser();
+        final mockCredential = MockUserCredential();
+        final googleCred = GoogleAuthProvider.credential(idToken: 'id-tok');
+        when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+        when(() => mockCredential.user).thenReturn(mockUser);
+        when(() => mockUser.linkWithCredential(any()))
+            .thenAnswer((_) async => mockCredential);
+
+        final result =
+            await service.linkAnonymousWithGoogleCredential(googleCred);
+
+        expect(result, equals(mockUser));
+        verify(() => mockUser.linkWithCredential(any())).called(1);
+      });
+
+      test(
+          'maps FirebaseAuthException(credential-already-in-use) to AuthException',
+          () async {
+        final mockUser = MockUser();
+        final googleCred = GoogleAuthProvider.credential(idToken: 'id-tok');
+        when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+        when(() => mockUser.linkWithCredential(any())).thenThrow(
+            FirebaseAuthException(code: 'credential-already-in-use'));
+
+        try {
+          await service.linkAnonymousWithGoogleCredential(googleCred);
+          fail('Expected AuthException');
+        } catch (e) {
+          expect(e, isA<AuthException>());
+          expect(
+              (e as AuthException).code, equals('credential-already-in-use'));
+        }
+      });
     });
   });
 }

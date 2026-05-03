@@ -43,4 +43,20 @@ abstract class FirebaseAuthService {
 
   /// Continuous stream of auth state changes.
   Stream<User?> authStateChanges();
+
+  /// Links the current anonymous user to an email/password credential.
+  ///
+  /// Throws [AuthException] on failure. Relevant codes: email-already-in-use,
+  /// credential-already-in-use, weak-password, requires-recent-login,
+  /// no-current-user.
+  Future<User> linkAnonymousWithEmailAndPassword({
+    required String email,
+    required String password,
+  });
+
+  /// Links the current anonymous user to a Google credential.
+  ///
+  /// Throws [AuthException] on failure. Relevant codes: credential-already-in-use,
+  /// no-current-user.
+  Future<User> linkAnonymousWithGoogleCredential(AuthCredential credential);
 }

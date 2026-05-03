@@ -41,15 +41,18 @@ class _SignupPageState extends State<SignupPage> {
       return;
     }
 
-    context.read<AuthBloc>().add(
-          SignUpWithEmailEvent(
-            SignUpParams(
-              email: email,
-              password: password,
-              displayName: displayName,
-            ),
-          ),
-        );
+    final params = SignUpParams(
+      email: email,
+      password: password,
+      displayName: displayName,
+    );
+
+    final bloc = context.read<AuthBloc>();
+    if (bloc.state is AuthAnonymous) {
+      bloc.add(LinkAnonymousWithEmailEvent(params));
+    } else {
+      bloc.add(SignUpWithEmailEvent(params));
+    }
   }
 
   @override
@@ -64,7 +67,13 @@ class _SignupPageState extends State<SignupPage> {
             );
             context.read<AuthBloc>().add(ErrorDismissedEvent());
           } else if (state is AuthAuthenticated) {
-            context.go('/');
+            final returnTo =
+                GoRouterState.of(context).uri.queryParameters['return'];
+            if (returnTo != null && returnTo.isNotEmpty) {
+              context.go(Uri.decodeComponent(returnTo));
+            } else {
+              context.go('/');
+            }
           }
         },
         builder: (context, state) {

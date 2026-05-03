@@ -109,6 +109,47 @@ class FirebaseAuthServiceImpl implements FirebaseAuthService {
   @override
   Stream<User?> authStateChanges() => _firebaseAuth.authStateChanges();
 
+  @override
+  Future<User> linkAnonymousWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw const AuthException(
+        message: 'No current user to link',
+        code: 'no-current-user',
+      );
+    }
+    try {
+      final credential =
+          EmailAuthProvider.credential(email: email, password: password);
+      final result = await user.linkWithCredential(credential);
+      return result.user!;
+    } on FirebaseAuthException catch (e) {
+      throw _mapException(e);
+    }
+  }
+
+  @override
+  Future<User> linkAnonymousWithGoogleCredential(
+    AuthCredential credential,
+  ) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw const AuthException(
+        message: 'No current user to link',
+        code: 'no-current-user',
+      );
+    }
+    try {
+      final result = await user.linkWithCredential(credential);
+      return result.user!;
+    } on FirebaseAuthException catch (e) {
+      throw _mapException(e);
+    }
+  }
+
   AuthException _mapException(FirebaseAuthException e) {
     return AuthException(
       message: e.message ?? e.code,

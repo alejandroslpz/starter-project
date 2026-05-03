@@ -428,5 +428,191 @@ void main() {
         expect(entity!.uid, equals('uid-123'));
       });
     });
+
+    // -------------------------------------------------------------------
+    // linkAnonymousWithEmail
+    // -------------------------------------------------------------------
+    group('linkAnonymousWithEmail', () {
+      const params = SignUpParams(
+        email: 'link@example.com',
+        password: 'pass123',
+        displayName: 'Alice',
+      );
+
+      test('happy path: links user, upserts doc, returns DataSuccess',
+          () async {
+        final mockUser = buildMockUser(uid: 'anon-uid', isAnonymous: true);
+        final updatedUser = buildMockUser(
+          uid: 'anon-uid',
+          displayName: params.displayName,
+          isAnonymous: false,
+        );
+        when(() => mockAuthService.linkAnonymousWithEmailAndPassword(
+              email: params.email,
+              password: params.password,
+            )).thenAnswer((_) async => mockUser);
+        when(() => mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .thenAnswer((_) async => updatedUser);
+        when(() => mockAuthService.currentUser).thenReturn(updatedUser);
+        when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
+
+        final result = await repository.linkAnonymousWithEmail(params);
+
+        expect(result, isA<DataSuccess<AuthUserEntity>>());
+        verify(() => mockAuthService.linkAnonymousWithEmailAndPassword(
+              email: params.email,
+              password: params.password,
+            )).called(1);
+        verify(() => mockDocService.upsertUser(any())).called(1);
+      });
+
+      test('calls updateDisplayName when displayName is non-empty', () async {
+        final mockUser = buildMockUser(uid: 'anon-uid', isAnonymous: true);
+        final updatedUser = buildMockUser(
+          uid: 'anon-uid',
+          displayName: params.displayName,
+          isAnonymous: false,
+        );
+        when(() => mockAuthService.linkAnonymousWithEmailAndPassword(
+              email: params.email,
+              password: params.password,
+            )).thenAnswer((_) async => mockUser);
+        when(() => mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .thenAnswer((_) async => updatedUser);
+        when(() => mockAuthService.currentUser).thenReturn(updatedUser);
+        when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
+
+        final result = await repository.linkAnonymousWithEmail(params);
+
+        expect(result, isA<DataSuccess<AuthUserEntity>>());
+        verify(() =>
+                mockAuthService.updateDisplayName(mockUser, params.displayName))
+            .called(1);
+      });
+
+      test(
+          'email-already-in-use: signOut + signInWithEmail fallback returns DataFailed(merge-required)',
+          () async {
+        // Use params without displayName to keep the fallback path simple.
+        const fallbackParams = SignUpParams(
+          email: 'link@example.com',
+          password: 'pass123',
+          displayName: '',
+        );
+        final freshUser = buildMockUser(uid: 'new-uid', isAnonymous: false);
+        when(() => mockAuthService.linkAnonymousWithEmailAndPassword(
+              email: fallbackParams.email,
+              password: fallbackParams.password,
+            )).thenThrow(const AuthException(
+          message: 'email-in-use',
+          code: 'email-already-in-use',
+        ));
+        when(() => mockAuthService.signOut()).thenAnswer((_) async {});
+        when(() => mockAuthService.signInWithEmail(
+                fallbackParams.email, fallbackParams.password))
+            .thenAnswer((_) async => freshUser);
+        when(() => mockAuthService.currentUser).thenReturn(freshUser);
+        when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
+
+        final result = await repository.linkAnonymousWithEmail(fallbackParams);
+
+        expect(result, isA<DataFailed<AuthUserEntity>>());
+        expect(result.error, isA<AuthException>());
+        expect((result.error as AuthException).code, equals('merge-required'));
+        verify(() => mockAuthService.signOut()).called(1);
+        verify(() => mockAuthService.signInWithEmail(
+                fallbackParams.email, fallbackParams.password))
+            .called(1);
+        verify(() => mockDocService.upsertUser(any())).called(1);
+      });
+
+      test('weak-password: returns DataFailed(AuthException)', () async {
+        when(() => mockAuthService.linkAnonymousWithEmailAndPassword(
+              email: params.email,
+              password: params.password,
+            )).thenThrow(const AuthException(
+          message: 'weak',
+          code: 'weak-password',
+        ));
+
+        final result = await repository.linkAnonymousWithEmail(params);
+
+        expect(result, isA<DataFailed<AuthUserEntity>>());
+        expect(result.error, isA<AuthException>());
+        expect((result.error as AuthException).code, equals('weak-password'));
+      });
+    });
+
+    // -------------------------------------------------------------------
+    // linkAnonymousWithGoogle
+    // -------------------------------------------------------------------
+    group('linkAnonymousWithGoogle', () {
+      test('happy path: links credential, upserts doc, returns DataSuccess',
+          () async {
+        final mockAccount = MockGoogleSignInAccount();
+        final mockGoogleAuth = MockGoogleSignInAuthentication();
+        final mockUser = buildMockUser(uid: 'linked-uid', isAnonymous: false);
+
+        when(() => mockGoogleAuth.idToken).thenReturn('id-token');
+        when(() => mockGoogleAuth.accessToken).thenReturn('access-token');
+        when(() => mockGoogleService.signIn())
+            .thenAnswer((_) async => mockAccount);
+        when(() => mockGoogleService.getAuthentication(mockAccount))
+            .thenAnswer((_) async => mockGoogleAuth);
+        when(() => mockAuthService.linkAnonymousWithGoogleCredential(any()))
+            .thenAnswer((_) async => mockUser);
+        when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
+
+        final result = await repository.linkAnonymousWithGoogle();
+
+        expect(result, isA<DataSuccess<AuthUserEntity>>());
+        verify(() => mockAuthService.linkAnonymousWithGoogleCredential(any()))
+            .called(1);
+        verify(() => mockDocService.upsertUser(any())).called(1);
+      });
+
+      test(
+          'credential-already-in-use: signOut + signInWithCredential fallback returns DataFailed(merge-required)',
+          () async {
+        final mockAccount = MockGoogleSignInAccount();
+        final mockGoogleAuth = MockGoogleSignInAuthentication();
+        final freshUser = buildMockUser(uid: 'fresh-uid', isAnonymous: false);
+
+        when(() => mockGoogleAuth.idToken).thenReturn('id-token');
+        when(() => mockGoogleAuth.accessToken).thenReturn('access-token');
+        when(() => mockGoogleService.signIn())
+            .thenAnswer((_) async => mockAccount);
+        when(() => mockGoogleService.getAuthentication(mockAccount))
+            .thenAnswer((_) async => mockGoogleAuth);
+        when(() => mockAuthService.linkAnonymousWithGoogleCredential(any()))
+            .thenThrow(const AuthException(
+          message: 'already-in-use',
+          code: 'credential-already-in-use',
+        ));
+        when(() => mockAuthService.signOut()).thenAnswer((_) async {});
+        when(() => mockAuthService.signInWithCredential(any()))
+            .thenAnswer((_) async => freshUser);
+        when(() => mockDocService.upsertUser(any())).thenAnswer((_) async {});
+
+        final result = await repository.linkAnonymousWithGoogle();
+
+        expect(result, isA<DataFailed<AuthUserEntity>>());
+        expect(result.error, isA<AuthException>());
+        expect((result.error as AuthException).code, equals('merge-required'));
+        verify(() => mockAuthService.signOut()).called(1);
+        verify(() => mockAuthService.signInWithCredential(any())).called(1);
+        verify(() => mockDocService.upsertUser(any())).called(1);
+      });
+
+      test('cancelled (signIn returns null): returns DataFailed', () async {
+        when(() => mockGoogleService.signIn()).thenAnswer((_) async => null);
+
+        final result = await repository.linkAnonymousWithGoogle();
+
+        expect(result, isA<DataFailed<AuthUserEntity>>());
+        expect(result.error, isA<AuthException>());
+        expect((result.error as AuthException).code, equals('cancelled'));
+      });
+    });
   });
 }

@@ -2,6 +2,7 @@ import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:news_app_clean_architecture/core/error/app_exception.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_user.dart';
@@ -19,6 +20,8 @@ const _anonUser = AuthUserEntity(
   isAnonymous: true,
 );
 
+const _unauthUser = AuthUnauthenticated();
+
 Widget _buildPage(AuthBloc bloc) {
   return BlocProvider<AuthBloc>.value(
     value: bloc,
@@ -31,6 +34,11 @@ Widget _buildPage(AuthBloc bloc) {
 void main() {
   late MockAuthBloc bloc;
 
+  setUpAll(() {
+    registerFallbackValue(SignInWithGoogleEvent());
+    registerFallbackValue(const LinkAnonymousWithGoogleEvent());
+  });
+
   setUp(() {
     bloc = MockAuthBloc();
     when(() => bloc.state).thenReturn(const AuthAnonymous(_anonUser));
@@ -38,6 +46,92 @@ void main() {
 
   tearDown(() {
     bloc.close();
+  });
+
+  group('LoginPage return-to navigation', () {
+    Widget buildPageWithRouter(
+      AuthBloc authBloc, {
+      String initialLocation = '/login',
+    }) {
+      final router = GoRouter(
+        initialLocation: initialLocation,
+        routes: [
+          GoRoute(
+            path: '/login',
+            builder: (context, state) => const LoginPage(),
+          ),
+          GoRoute(
+            path: '/article/upload',
+            builder: (context, state) => const Scaffold(
+              body: Text('ArticleUploadPage'),
+            ),
+          ),
+          GoRoute(
+            path: '/',
+            builder: (context, state) => const Scaffold(
+              body: Text('Home'),
+            ),
+          ),
+        ],
+      );
+      return BlocProvider<AuthBloc>.value(
+        value: authBloc,
+        child: MaterialApp.router(routerConfig: router),
+      );
+    }
+
+    testWidgets(
+        'navigates to ?return= path on AuthAuthenticated when return param present',
+        (tester) async {
+      whenListen(
+        bloc,
+        Stream.fromIterable([
+          const AuthAnonymous(_anonUser),
+          const AuthAuthenticated(AuthUserEntity(
+            uid: 'user-1',
+            email: 'a@b.com',
+            displayName: 'A',
+            providerId: 'password',
+            isAnonymous: false,
+          )),
+        ]),
+        initialState: const AuthAnonymous(_anonUser),
+      );
+
+      await tester.pumpWidget(
+        buildPageWithRouter(bloc,
+            initialLocation: '/login?return=%2Farticle%2Fupload'),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('ArticleUploadPage'), findsOneWidget);
+    });
+
+    testWidgets(
+        'navigates to / on AuthAuthenticated when no return param present',
+        (tester) async {
+      whenListen(
+        bloc,
+        Stream.fromIterable([
+          const AuthAnonymous(_anonUser),
+          const AuthAuthenticated(AuthUserEntity(
+            uid: 'user-1',
+            email: 'a@b.com',
+            displayName: 'A',
+            providerId: 'password',
+            isAnonymous: false,
+          )),
+        ]),
+        initialState: const AuthAnonymous(_anonUser),
+      );
+
+      await tester.pumpWidget(buildPageWithRouter(bloc));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Home'), findsOneWidget);
+    });
   });
 
   group('LoginPage', () {
@@ -122,6 +216,35 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.byType(SnackBar), findsOneWidget);
+    });
+
+    testWidgets(
+        'Google button dispatches SignInWithGoogleEvent when NOT anonymous',
+        (tester) async {
+      when(() => bloc.state).thenReturn(_unauthUser);
+
+      await tester.pumpWidget(_buildPage(bloc));
+      await tester.tap(find.textContaining('Google'));
+      await tester.pump();
+
+      verify(() => bloc.add(any(that: isA<SignInWithGoogleEvent>()))).called(1);
+      verifyNever(
+          () => bloc.add(any(that: isA<LinkAnonymousWithGoogleEvent>())));
+    });
+
+    testWidgets(
+        'Google button dispatches LinkAnonymousWithGoogleEvent when anonymous',
+        (tester) async {
+      when(() => bloc.state).thenReturn(const AuthAnonymous(_anonUser));
+
+      await tester.pumpWidget(_buildPage(bloc));
+      await tester.tap(find.textContaining('Google'));
+      await tester.pump();
+
+      verify(() =>
+              bloc.add(any(that: isA<LinkAnonymousWithGoogleEvent>())))
+          .called(1);
+      verifyNever(() => bloc.add(any(that: isA<SignInWithGoogleEvent>())));
     });
   });
 }

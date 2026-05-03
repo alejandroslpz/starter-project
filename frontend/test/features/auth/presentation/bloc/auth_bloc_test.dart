@@ -7,6 +7,8 @@ import 'package:news_app_clean_architecture/core/usecase/usecase.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_user.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/params/sign_in_params.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/params/sign_up_params.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_email.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/use_cases/link_anonymous_with_google.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/send_password_reset.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_anonymously.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_in_with_email.dart';
@@ -35,6 +37,12 @@ class MockSignOutUseCase extends Mock implements SignOutUseCase {}
 class MockSendPasswordResetUseCase extends Mock
     implements SendPasswordResetUseCase {}
 
+class MockLinkAnonymousWithEmailUseCase extends Mock
+    implements LinkAnonymousWithEmailUseCase {}
+
+class MockLinkAnonymousWithGoogleUseCase extends Mock
+    implements LinkAnonymousWithGoogleUseCase {}
+
 const _anonUser = AuthUserEntity(
   uid: 'anon-uid',
   providerId: 'anonymous',
@@ -62,6 +70,8 @@ AuthBloc _buildBloc({
   required MockSignInWithGoogleUseCase signInWithGoogle,
   required MockSignOutUseCase signOut,
   required MockSendPasswordResetUseCase sendPasswordReset,
+  MockLinkAnonymousWithEmailUseCase? linkAnonymousWithEmail,
+  MockLinkAnonymousWithGoogleUseCase? linkAnonymousWithGoogle,
 }) {
   return AuthBloc(
     watchAuthState,
@@ -71,6 +81,8 @@ AuthBloc _buildBloc({
     signInWithGoogle,
     signOut,
     sendPasswordReset,
+    linkAnonymousWithEmail ?? MockLinkAnonymousWithEmailUseCase(),
+    linkAnonymousWithGoogle ?? MockLinkAnonymousWithGoogleUseCase(),
   );
 }
 
@@ -82,6 +94,8 @@ void main() {
   late MockSignInWithGoogleUseCase signInWithGoogle;
   late MockSignOutUseCase signOut;
   late MockSendPasswordResetUseCase sendPasswordReset;
+  late MockLinkAnonymousWithEmailUseCase linkAnonymousWithEmail;
+  late MockLinkAnonymousWithGoogleUseCase linkAnonymousWithGoogle;
 
   setUpAll(() {
     registerFallbackValue(const NoParams());
@@ -101,6 +115,8 @@ void main() {
     signInWithGoogle = MockSignInWithGoogleUseCase();
     signOut = MockSignOutUseCase();
     sendPasswordReset = MockSendPasswordResetUseCase();
+    linkAnonymousWithEmail = MockLinkAnonymousWithEmailUseCase();
+    linkAnonymousWithGoogle = MockLinkAnonymousWithGoogleUseCase();
   });
 
   // Helper that provides a watchAuthState stream returning a single value
@@ -393,5 +409,140 @@ void main() {
     expect: () => [
       isA<AuthAnonymous>(),
     ],
+  );
+
+  // -------------------------------------------------------------------
+  // LinkAnonymousWithEmailEvent
+  // -------------------------------------------------------------------
+  blocTest<AuthBloc, AuthState>(
+    'LinkAnonymousWithEmailEvent: emits AuthAuthenticating on DataSuccess (stream owns AuthAuthenticated)',
+    build: () {
+      stubWatch(null);
+      when(() => linkAnonymousWithEmail.call(params: any(named: 'params')))
+          .thenAnswer((_) async => const DataSuccess(_authUser));
+      return _buildBloc(
+        watchAuthState: watchAuthState,
+        signInAnonymously: signInAnonymously,
+        signInWithEmail: signInWithEmail,
+        signUpWithEmail: signUpWithEmail,
+        signInWithGoogle: signInWithGoogle,
+        signOut: signOut,
+        sendPasswordReset: sendPasswordReset,
+        linkAnonymousWithEmail: linkAnonymousWithEmail,
+        linkAnonymousWithGoogle: linkAnonymousWithGoogle,
+      );
+    },
+    act: (bloc) => bloc.add(
+      LinkAnonymousWithEmailEvent(
+        const SignUpParams(
+          email: 'link@e.com',
+          password: 'pass1234',
+          displayName: 'Alice',
+        ),
+      ),
+    ),
+    expect: () => [isA<AuthAuthenticating>()],
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'LinkAnonymousWithEmailEvent: emits AuthAuthenticating then AuthError on DataFailed',
+    build: () {
+      stubWatch(null);
+      when(() => linkAnonymousWithEmail.call(params: any(named: 'params')))
+          .thenAnswer((_) async => const DataFailed(_authError));
+      return _buildBloc(
+        watchAuthState: watchAuthState,
+        signInAnonymously: signInAnonymously,
+        signInWithEmail: signInWithEmail,
+        signUpWithEmail: signUpWithEmail,
+        signInWithGoogle: signInWithGoogle,
+        signOut: signOut,
+        sendPasswordReset: sendPasswordReset,
+        linkAnonymousWithEmail: linkAnonymousWithEmail,
+        linkAnonymousWithGoogle: linkAnonymousWithGoogle,
+      );
+    },
+    act: (bloc) => bloc.add(
+      LinkAnonymousWithEmailEvent(
+        const SignUpParams(email: 'link@e.com', password: '123', displayName: ''),
+      ),
+    ),
+    expect: () => [isA<AuthAuthenticating>(), isA<AuthError>()],
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'LinkAnonymousWithEmailEvent: calls use case with correct params',
+    build: () {
+      stubWatch(null);
+      when(() => linkAnonymousWithEmail.call(params: any(named: 'params')))
+          .thenAnswer((_) async => const DataSuccess(_authUser));
+      return _buildBloc(
+        watchAuthState: watchAuthState,
+        signInAnonymously: signInAnonymously,
+        signInWithEmail: signInWithEmail,
+        signUpWithEmail: signUpWithEmail,
+        signInWithGoogle: signInWithGoogle,
+        signOut: signOut,
+        sendPasswordReset: sendPasswordReset,
+        linkAnonymousWithEmail: linkAnonymousWithEmail,
+        linkAnonymousWithGoogle: linkAnonymousWithGoogle,
+      );
+    },
+    act: (bloc) => bloc.add(
+      const LinkAnonymousWithEmailEvent(
+        SignUpParams(email: 'a@b.com', password: 'pass', displayName: 'Bob'),
+      ),
+    ),
+    verify: (_) {
+      verify(() => linkAnonymousWithEmail.call(params: any(named: 'params')))
+          .called(1);
+    },
+  );
+
+  // -------------------------------------------------------------------
+  // LinkAnonymousWithGoogleEvent
+  // -------------------------------------------------------------------
+  blocTest<AuthBloc, AuthState>(
+    'LinkAnonymousWithGoogleEvent: emits AuthAuthenticating on DataSuccess',
+    build: () {
+      stubWatch(null);
+      when(() => linkAnonymousWithGoogle.call(params: any(named: 'params')))
+          .thenAnswer((_) async => const DataSuccess(_authUser));
+      return _buildBloc(
+        watchAuthState: watchAuthState,
+        signInAnonymously: signInAnonymously,
+        signInWithEmail: signInWithEmail,
+        signUpWithEmail: signUpWithEmail,
+        signInWithGoogle: signInWithGoogle,
+        signOut: signOut,
+        sendPasswordReset: sendPasswordReset,
+        linkAnonymousWithEmail: linkAnonymousWithEmail,
+        linkAnonymousWithGoogle: linkAnonymousWithGoogle,
+      );
+    },
+    act: (bloc) => bloc.add(const LinkAnonymousWithGoogleEvent()),
+    expect: () => [isA<AuthAuthenticating>()],
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'LinkAnonymousWithGoogleEvent: emits AuthAuthenticating then AuthError on DataFailed',
+    build: () {
+      stubWatch(null);
+      when(() => linkAnonymousWithGoogle.call(params: any(named: 'params')))
+          .thenAnswer((_) async => const DataFailed(_authError));
+      return _buildBloc(
+        watchAuthState: watchAuthState,
+        signInAnonymously: signInAnonymously,
+        signInWithEmail: signInWithEmail,
+        signUpWithEmail: signUpWithEmail,
+        signInWithGoogle: signInWithGoogle,
+        signOut: signOut,
+        sendPasswordReset: sendPasswordReset,
+        linkAnonymousWithEmail: linkAnonymousWithEmail,
+        linkAnonymousWithGoogle: linkAnonymousWithGoogle,
+      );
+    },
+    act: (bloc) => bloc.add(const LinkAnonymousWithGoogleEvent()),
+    expect: () => [isA<AuthAuthenticating>(), isA<AuthError>()],
   );
 }

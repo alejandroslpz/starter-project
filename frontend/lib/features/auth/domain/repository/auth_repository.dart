@@ -48,4 +48,16 @@ abstract class AuthRepository {
   /// scenarios — primarily during development when Firebase data is wiped
   /// from the console while the device retains a cached UID.
   Future<AuthUserEntity?> validateCachedUser();
+
+  /// Links the current anonymous user to an email/password credential.
+  ///
+  /// On email-already-in-use, signs out the anonymous account and signs in
+  /// with the existing credential (anonymous data is not preserved).
+  Future<DataState<AuthUserEntity>> linkAnonymousWithEmail(SignUpParams params);
+
+  /// Links the current anonymous user to a Google credential.
+  ///
+  /// On credential-already-in-use, signs out and signs in with the Google
+  /// credential (anonymous data is not preserved).
+  Future<DataState<AuthUserEntity>> linkAnonymousWithGoogle();
 }
