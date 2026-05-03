@@ -2,7 +2,12 @@ import { onDocumentWritten, FirestoreEvent, Change } from 'firebase-functions/v2
 import { FieldValue, DocumentSnapshot } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions/v2';
 import { getEmbeddingProvider } from '../ai/factory';
-import { composeArticleText, sha256, truncateForEmbed } from '../shared/article_text';
+import {
+  composeArticleText,
+  EMBED_TEXT_MAX_CHARS,
+  embeddingSourceHash,
+  truncateForEmbed,
+} from '../shared/article_text';
 import { GEMINI_API_KEY } from '../shared/secrets';
 
 interface ArticleData {
@@ -29,12 +34,13 @@ export async function handleArticleWrite(event: ArticleWriteEvent): Promise<void
     description: after.description,
     content: after.content,
   });
-  const computedHash = sha256(composed);
+
+  const provider = getEmbeddingProvider();
+  const computedHash = embeddingSourceHash(composed, provider.modelName);
 
   if (after.embeddingSourceHash === computedHash) return;
 
-  const provider = getEmbeddingProvider();
-  const vector = await provider.embed(truncateForEmbed(composed));
+  const vector = await provider.embed(truncateForEmbed(composed), 'document');
 
   await event.data!.after.ref.set(
     {
@@ -49,7 +55,7 @@ export async function handleArticleWrite(event: ArticleWriteEvent): Promise<void
   logger.info('article embedded', {
     articleId: event.data!.after.id,
     composedLength: composed.length,
-    truncated: composed.length > 8000,
+    truncated: composed.length > EMBED_TEXT_MAX_CHARS,
     provider: provider.modelName,
   });
 }

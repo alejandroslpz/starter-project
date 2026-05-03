@@ -22,13 +22,21 @@ interface SearchResponse {
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
 const MAX_QUERY_LEN = 200;
+const DISTANCE_RESULT_FIELD = '_distance';
 
 // Cosine distance cutoff. `findNearest` always returns the top-N closest
 // vectors regardless of how dissimilar they are — with a small collection,
-// every query would otherwise return the same articles. A distance > 0.85
-// (cosine angle > ~67°) means the texts are not semantically related and
-// should NOT appear in results.
-const MAX_RELEVANT_DISTANCE = 0.85;
+// every query would otherwise return the same articles.
+//
+// Calibrated empirically against `gemini-embedding-001` at 768 dims with
+// proper RETRIEVAL_DOCUMENT/RETRIEVAL_QUERY taskType:
+//   - Direct query match (e.g. "ejercicios en casa rutina" against an
+//     exercise article): ~0.27
+//   - Unrelated short queries ("mlb", "miam"): ~0.42–0.48
+// Threshold 0.35 sits in the gap with margin on both sides. As the corpus
+// grows, top-N ranking handles relevance naturally and this cutoff
+// matters less.
+const MAX_RELEVANT_DISTANCE = 0.35;
 
 export async function handleSearchRequest(
   request: CallableRequest<SearchRequestData>,
@@ -45,7 +53,7 @@ export async function handleSearchRequest(
   const { query, limit } = parseAndValidateArgs(request.data);
 
   const provider = getEmbeddingProvider();
-  const queryVector = await provider.embed(query);
+  const queryVector = await provider.embed(query, 'query');
 
   const snapshot = await getFirestore()
     .collection('articles')
@@ -56,13 +64,13 @@ export async function handleSearchRequest(
       queryVector: FieldValue.vector(queryVector),
       limit,
       distanceMeasure: 'COSINE',
-      distanceResultField: '_distance',
+      distanceResultField: DISTANCE_RESULT_FIELD,
     })
     .get();
 
   const allResults: SearchResult[] = snapshot.docs.map((doc) => ({
     articleId: doc.id,
-    distance: doc.get('_distance') as number,
+    distance: doc.get(DISTANCE_RESULT_FIELD) as number,
   }));
 
   const results = allResults.filter((r) => r.distance <= MAX_RELEVANT_DISTANCE);
