@@ -1,0 +1,125 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/params/sign_up_params.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_text_field.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_validators.dart';
+
+/// Sign-up page — allows creating an account with email, password, and display name.
+class SignupPage extends StatefulWidget {
+  const SignupPage({super.key});
+
+  @override
+  State<SignupPage> createState() => _SignupPageState();
+}
+
+class _SignupPageState extends State<SignupPage> {
+  final _displayNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _onCreateAccount(BuildContext context) {
+    final displayName = _displayNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (AuthValidators.validateDisplayName(displayName) != null ||
+        AuthValidators.validateEmail(email) != null ||
+        AuthValidators.validatePassword(password) != null) {
+      setState(() {}); // trigger rebuild to show inline errors
+      return;
+    }
+
+    context.read<AuthBloc>().add(
+          SignUpWithEmailEvent(
+            SignUpParams(
+              email: email,
+              password: password,
+              displayName: displayName,
+            ),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Create account')),
+      body: BlocConsumer<AuthBloc, AuthState>(
+        listener: (context, state) {
+          if (state is AuthError) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.error.localizedMessage)),
+            );
+          }
+        },
+        builder: (context, state) {
+          final isLoading = state is AuthAuthenticating;
+
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AuthTextField(
+                  key: const Key('signup_displayname_field'),
+                  label: 'Display name',
+                  controller: _displayNameController,
+                  readOnly: isLoading,
+                  errorText:
+                      _displayNameController.text.isNotEmpty
+                          ? AuthValidators.validateDisplayName(
+                              _displayNameController.text)
+                          : null,
+                ),
+                const SizedBox(height: 16),
+                AuthTextField(
+                  key: const Key('signup_email_field'),
+                  label: 'Email',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  readOnly: isLoading,
+                  errorText:
+                      _emailController.text.isNotEmpty
+                          ? AuthValidators.validateEmail(_emailController.text)
+                          : null,
+                ),
+                const SizedBox(height: 16),
+                AuthTextField(
+                  key: const Key('signup_password_field'),
+                  label: 'Password',
+                  controller: _passwordController,
+                  obscureText: true,
+                  readOnly: isLoading,
+                  errorText:
+                      _passwordController.text.isNotEmpty
+                          ? AuthValidators.validatePassword(
+                              _passwordController.text)
+                          : null,
+                ),
+                const SizedBox(height: 24),
+                if (isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  ElevatedButton(
+                    onPressed: () => _onCreateAccount(context),
+                    child: const Text('Create account'),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

@@ -65,6 +65,9 @@ final class StorageException extends AppException {
 }
 
 /// Thrown when an authentication operation fails.
+///
+/// [code] maps directly to a `FirebaseAuthException.code` value.
+/// [localizedMessage] translates each known code to a user-facing phrase.
 final class AuthException extends AppException {
   const AuthException({
     required super.message,
@@ -74,8 +77,25 @@ final class AuthException extends AppException {
   });
 
   @override
-  String get localizedMessage =>
-      'An authentication error occurred. Please sign in again.';
+  String get localizedMessage {
+    switch (code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Email or password is incorrect.';
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'user-not-found':
+        return 'No account exists for this email.';
+      case 'weak-password':
+        return 'Password must be at least 8 characters.';
+      case 'network-request-failed':
+        return 'No internet connection.';
+      case 'popup-closed-by-user':
+        return 'Sign-in cancelled.';
+      default:
+        return 'Sign-in failed. Please try again.';
+    }
+  }
 }
 
 /// Thrown when no other subtype applies — wraps unexpected exceptions.
