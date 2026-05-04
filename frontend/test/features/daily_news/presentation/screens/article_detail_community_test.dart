@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:news_app_clean_architecture/features/article_upload/domain/entities/article_category.dart';
 import 'package:news_app_clean_architecture/features/article_upload/domain/entities/article_status.dart';
 import 'package:news_app_clean_architecture/features/article_upload/domain/entities/journalist_article.dart';
-import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/article_detail/article_detail.dart';
+import 'package:news_app_clean_architecture/features/daily_news/presentation/screens/article_detail/article_detail.dart';
 import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 final _community = JournalistArticleEntity(

@@ -24,7 +24,7 @@ import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_u
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
-import 'package:news_app_clean_architecture/features/auth/presentation/pages/login/login_page.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/screens/login/login_page.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
     implements AuthBloc {}

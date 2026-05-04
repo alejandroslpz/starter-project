@@ -5,6 +5,16 @@
 > Region is **locked**: Vector Search requires `nam5` or `eur3` — cannot be changed post-creation.
 > Requires: `cloud_firestore ^5.4.0` (native Vector field type for `embedding`).
 
+## Implementation status
+
+This document mixes the **deployed schema** with **reserved field names** for future changes. Each field is marked:
+
+- ✅ **Deployed** — written by current production code
+- 🔜 **Reserved** — name reserved; implementation deferred to a named follow-up change
+- ⚠️ **Partial** — partly written (e.g., field exists but counters aren't reconciled server-side)
+
+Collections marked ✅ at the heading level are fully deployed; ⚠️ have at least one production write path; 🔜 are not yet created.
+
 ---
 
 ## Conventions
@@ -73,30 +83,30 @@ erDiagram
 
 ## Collections
 
-### `users/{userId}`
+### `users/{userId}` ⚠️
 
-Auth-derived, profile, streak, and counter fields for every registered user.
+Auth-derived profile fields. Streak + engagement counters are reserved for the deferred `analytics-dashboard` change.
 
-| Field | Type | Marker | Notes |
+| Field | Type | Status | Notes |
 |-------|------|--------|-------|
-| `email` | string | REQUIRED (after auth conversion) | from FirebaseAuth |
-| `displayName` | string | REQUIRED (after auth conversion) | |
-| `photoURL` | string | OPTIONAL | URL to Storage `media/users/{userId}/avatar.jpg` or external |
-| `providerId` | string | REQUIRED | enum: `"google.com"` \| `"password"` \| `"anonymous"` |
-| `username` | string | REQUIRED (after auth conversion) | unique, validated against `usernames/{lowercase}` |
-| `bio` | string | OPTIONAL | maxLength 280 |
-| `verified` | bool | REQUIRED | default `false` |
-| `createdAt` | Timestamp | REQUIRED | server-side |
-| `isAnonymous` | bool | REQUIRED | `true` for anonymous users, `false` after identity conversion |
-| `timezone` | string | REQUIRED | IANA tz id, e.g. `"America/Mexico_City"` — user's local timezone, NOT UTC |
-| `currentStreak` | number | REQUIRED | default 0; resets at 00:00 in user-local time |
-| `longestStreak` | number | REQUIRED | default 0 |
-| `lastPublishDate` | string | OPTIONAL | `YYYY-MM-DD` in user's timezone (not UTC) |
-| `articlesPublished` | number | REQUIRED | denormalized counter |
-| `totalReads` | number | REQUIRED | denormalized counter |
-| `totalFavoritesReceived` | number | REQUIRED | denormalized counter |
+| `email` | string | ✅ | from FirebaseAuth |
+| `displayName` | string | ✅ | |
+| `photoURL` | string | ✅ | URL to Storage `media/users/{userId}/avatar.jpg` or external |
+| `providerId` | string | ✅ | enum: `"google.com"` \| `"password"` \| `"anonymous"` |
+| `isAnonymous` | bool | ✅ | `true` for anonymous users, `false` after identity conversion |
+| `createdAt` | Timestamp | ✅ | server-side |
+| `username` | string | 🔜 (`username-uniqueness`) | unique, validated against `usernames/{lowercase}` |
+| `bio` | string | 🔜 (`profile-v2`) | maxLength 280 |
+| `verified` | bool | 🔜 (`profile-v2`) | default `false` |
+| `timezone` | string | 🔜 (`analytics-dashboard`) | IANA tz id, e.g. `"America/Mexico_City"` |
+| `currentStreak` | number | 🔜 (`analytics-dashboard`) | resets at 00:00 in user-local time |
+| `longestStreak` | number | 🔜 (`analytics-dashboard`) | |
+| `lastPublishDate` | string | 🔜 (`analytics-dashboard`) | `YYYY-MM-DD` in user's timezone |
+| `articlesPublished` | number | 🔜 (`analytics-dashboard`) | denormalized counter |
+| `totalReads` | number | 🔜 (`analytics-dashboard`) | denormalized counter |
+| `totalFavoritesReceived` | number | 🔜 (`analytics-dashboard`) | denormalized counter |
 
-**Field count**: 16
+**Deployed fields**: 6. **Reserved**: 10.
 
 ---
 
@@ -149,7 +159,7 @@ The `embedding` field uses the native `Vector` type from `cloud_firestore ^5.4.0
 | Property | Value |
 |----------|-------|
 | Dimensions | 768 |
-| Generator | Gemini `text-embedding-004` |
+| Generator | Gemini `gemini-embedding-001` |
 | Distance metric | Cosine similarity |
 | SDK floor | `cloud_firestore ^5.4.0` |
 | Cost | ~6 KB per document |
@@ -158,74 +168,96 @@ Downgrading the SDK below `^5.4.0` would break `embedding` serialization — thi
 
 ---
 
-### `articles/{articleId}/favorites/{userId}`
+### `articles/{articleId}/favorites/{userId}` ✅
 
-Write path for favoriting an article. Document ID is the `userId`.
+Reverse-lookup of who favorited an article. Document ID is the `userId`.
 
-| Field | Type | Marker | Notes |
+| Field | Type | Status | Notes |
 |-------|------|--------|-------|
-| `userId` | string | REQUIRED | mirror of doc id |
-| `favoritedAt` | Timestamp | REQUIRED | server-side |
+| `userId` | string | ✅ | mirror of doc id |
+| `articleId` | string | ✅ | mirror of parent doc id |
+| `createdAt` | Timestamp | ✅ | server-side |
 
 ---
 
-### `users/{userId}/favorites/{articleId}` (mirror)
+### `users/{userId}/favorites/{articleId}` ✅
 
 Mirror collection for efficient "my favorites" queries. Document ID is the `articleId`.
 
-| Field | Type | Marker | Notes |
+| Field | Type | Status | Notes |
 |-------|------|--------|-------|
-| `articleId` | string | REQUIRED | mirror of doc id |
-| `favoritedAt` | Timestamp | REQUIRED | server-side |
-| `articleTitle` | string | REQUIRED | denormalized for list display |
-| `articleThumbnailURL` | string | REQUIRED | denormalized; avoids fan-out on list render |
+| `articleId` | string | ✅ | mirror of doc id |
+| `articleTitle` | string | 🔜 (`article-upload-v2`) | denormalize for list rendering without fan-out |
+| `articleThumbnailURL` | string | 🔜 (`article-upload-v2`) | denormalize for list rendering without fan-out |
 
-**Mirror rationale**: `articles/{id}/favorites/{userId}` enables a single subcollection scan for "who favorited this article". The mirror at `users/{uid}/favorites/{articleId}` enables a single subcollection scan for "my favorites", with `articleTitle` and `articleThumbnailURL` denormalized so the list renders without a second fan-out read into `articles/`.
+**Mirror rationale**: `articles/{id}/favorites/{userId}` enables a single subcollection scan for "who favorited this article". The mirror at `users/{uid}/favorites/{articleId}` enables a single subcollection scan for "my favorites". Title and thumbnail denormalization is reserved for a follow-up that adds them in the same batch as the toggle.
 
-Cost: **2 writes per favorite toggle** (one to each path, in a single Firestore batch — see `article-upload`). Acceptable because favorites are low-frequency relative to reads, which dominate.
+Cost: **2 writes per favorite toggle** (one to each path, single batched commit). Plus a third write incrementing `articles.favoriteCount`. Acceptable because favorites are low-frequency relative to reads.
 
 ---
 
-### `articles/{articleId}/views/{viewId}`
+### `users/{userId}/savedArticles/{articleId}` ✅
 
-Per-read event document. Aggregated into `articles/{articleId}.viewCount` by a Cloud Function.
+Per-user bookmarks of NewsAPI articles. Document ID is `sha1(article.url)` so the same URL writes to the same doc — saving twice is idempotent. The full article snapshot is stored because NewsAPI URLs are not guaranteed to remain reachable beyond ~30 days; the saved copy is durable.
 
 | Field | Type | Marker | Notes |
 |-------|------|--------|-------|
-| `userId` | string | OPTIONAL | absent for anonymous reads (see locked decision: anonymous auth) |
-| `viewedAt` | Timestamp | REQUIRED | server-side |
-| `readDurationSeconds` | number | REQUIRED | client-reported |
-| `completed` | bool | REQUIRED | `true` if user scrolled to end of article |
+| `source` | string | REQUIRED | `'newsapi'` for now; future-proof for `'community'` saves |
+| `url` | string | REQUIRED | original NewsAPI url |
+| `title` | string | REQUIRED | denormalized for list display |
+| `description` | string | OPTIONAL | empty string when NewsAPI omits it |
+| `urlToImage` | string | OPTIONAL | empty string when NewsAPI omits it |
+| `publishedAt` | string | OPTIONAL | ISO 8601, NewsAPI format |
+| `author` | string | OPTIONAL | empty string when unknown |
+| `content` | string | OPTIONAL | NewsAPI's truncated content snippet |
+| `savedAt` | Timestamp | REQUIRED | server-side |
 
-**Aggregation**: A Cloud Function (scoped to the `analytics-dashboard` change) reads this subcollection and writes the aggregate into `articles/{articleId}.viewCount`. The aggregator itself is **out of scope** for this change.
+**Anonymous users have a uid** — they can save under their anon UID, and `linkWithCredential` preserves the UID on signup so saves carry over to the real account. The save **action** is gated to `AuthAuthenticated` only (anonymous users are bounced through `/login`); existing saves under an anon UID remain accessible after the user upgrades the account.
+
+**Migration**: a one-shot `SavedArticlesMigration` lifts any pre-existing local saves from the legacy Floor SQLite store into this subcollection at app boot. Idempotent via a `SharedPreferences` flag.
 
 ---
 
-### `recommendations/{userId}` (single doc per user)
+### `articles/{articleId}/views/{viewId}` 🔜 (`analytics-dashboard`)
 
-One document per user — not a subcollection. Replaced entirely on each recommendation generation.
+Per-read event document, NOT yet created in production. Reserved for the analytics aggregator.
 
-| Field | Type | Marker | Notes |
+| Field | Type | Status | Notes |
 |-------|------|--------|-------|
-| `articleIds` | array\<reference\> | REQUIRED | ranked list, max 20 refs → `articles/{articleId}` |
-| `generatedAt` | Timestamp | REQUIRED | server-side |
-| `userEmbedding` | Vector | FUTURE (`ai-embeddings`) | 768 dims, averaged from user's read history |
-| `expiresAt` | Timestamp | REQUIRED | Firestore TTL policy field (24h); NOT deleted client-side |
+| `userId` | string | 🔜 | optional — absent for anonymous reads |
+| `viewedAt` | Timestamp | 🔜 | server-side |
+| `readDurationSeconds` | number | 🔜 | client-reported |
+| `completed` | bool | 🔜 | `true` if user scrolled to end of article |
 
-**TTL note**: Expiry is enforced by a **Firestore TTL policy** configured on the `expiresAt` field — not by client-side deletion. Configure at collection-group level in the Firebase console (or via `firestore.indexes.json` in `ai-embeddings`). Fresh recommendations are generated when the user reads new articles; 24h staleness is acceptable.
+**Aggregator**: a Cloud Function in `analytics-dashboard` will read this subcollection and write the aggregate into `articles/{articleId}.viewCount`. Until then `viewCount` stays at its create-time default of 0 — favorites are the only engagement counter actually changing.
 
 ---
 
-### `usernames/{usernameLowercase}` (uniqueness ledger)
+### `recommendations/{userId}` 🔜 (`recommendations-cache`)
 
-Doc id is `username.toLowerCase()`. Existence of this document enforces case-insensitive username uniqueness.
+One document per user. **Not deployed in v1** — the `recommendForUser` Cloud Function is **stateless**: it computes the user interest vector, fetches NewsAPI candidates, and ranks them in-memory per request. Each tap of "For You" reruns the whole pipeline. This collection is reserved for the optimization pass that caches the result with a TTL.
 
-| Field | Type | Marker | Notes |
+| Field | Type | Status | Notes |
 |-------|------|--------|-------|
-| `userId` | string | REQUIRED | back-ref → `users/{userId}` |
-| `reservedAt` | Timestamp | REQUIRED | server-side |
+| `articleIds` | array\<reference\> | 🔜 | ranked list, max 20 refs → `articles/{articleId}` |
+| `generatedAt` | Timestamp | 🔜 | server-side |
+| `userEmbedding` | Vector | 🔜 | 768 dims, averaged from saved-article titles |
+| `expiresAt` | Timestamp | 🔜 | Firestore TTL policy field (24h); NOT deleted client-side |
 
-The document is **create-only, never updated**. Case-insensitive uniqueness is enforced by a `create` rule in `auth` (deferred). The display-form username lives in `users/{userId}.username`.
+**Trade-off**: stateless costs ~3 seconds per request and 2 batch-embed calls. Cached would drop latency to ~100ms but requires an invalidation strategy (TTL or trigger on `users/{uid}/savedArticles` write). Acceptable for current scale.
+
+---
+
+### `usernames/{usernameLowercase}` ⚠️ (`username-uniqueness`)
+
+Rules block writes that don't match the auth uid (`request.auth.uid == request.resource.data.uid`), but the **transaction-based uniqueness check is not yet wired into the signup flow**. Race condition: two simultaneous signups with the same username can both succeed because neither reads-then-writes inside a transaction. Mitigation: the second writer's `create` is rejected by rules due to existing doc — but the first writer's user-doc creation may have already succeeded under a different username.
+
+| Field | Type | Status | Notes |
+|-------|------|--------|-------|
+| `uid` | string | 🔜 | back-ref → `users/{userId}` |
+| `reservedAt` | Timestamp | 🔜 | server-side |
+
+The document is **create-only** by rule. Display-form username will live in `users/{userId}.username`.
 
 ---
 
@@ -270,6 +302,7 @@ Composite indexes will be declared in `backend/firestore.indexes.json` by the ch
 | my-articles | composite | `userId` ASC, `createdAt` DESC | "My Articles" screen |
 | category-feed | composite | `category` ASC, `status` ASC, `publishedAt` DESC | category filter chips |
 | my-favorites | implicit | subcollection ordered by `favoritedAt` DESC | `users/{uid}/favorites` listing |
+| my-saved-articles | implicit | subcollection ordered by `savedAt` DESC | `users/{uid}/savedArticles` listing |
 | article-views | implicit | subcollection ordered by `viewedAt` DESC | analytics aggregator (`analytics-dashboard`) |
 | vector-similarity | vector | `embedding`, cosine, 768 dims | `semanticSearch` + `recommendForUser` (added in `ai-embeddings`) |
 
@@ -357,19 +390,21 @@ These fields are **documented to reserve names** — they are NOT created by thi
 
 ## Embedding lifecycle
 
-Articles gain four embedding-related fields when the `embedArticleOnWrite`
-Cloud Function fires (or when an admin runs `backfillEmbeddings`):
+Articles gain four embedding-related fields when `embedArticleOnWrite`
+fires (or when an admin runs `backfillEmbeddings`):
 
-- `embedding` — a 768-dimension vector produced by the active embedding
-  provider (currently Gemini `text-embedding-004`).
-- `embeddingSourceHash` — sha256 hex of the concatenated
-  `title  description  content` text (Start-of-Header separator, full
-  text, pre-truncation). The trigger skips re-embedding when this hash
-  matches the doc's stored hash, preventing write loops and unnecessary
-  API calls.
-- `embeddingProvider` — identifier of the model in use. Future provider
-  swaps (OpenAI, Voyage, Anthropic) update this value and trigger a
-  full backfill if the dimension changes.
+- `embedding` — 768-dim vector produced by the active provider with
+  `taskType: RETRIEVAL_DOCUMENT` (currently Gemini `gemini-embedding-001`).
+  Search queries are embedded with `taskType: RETRIEVAL_QUERY` for asymmetric
+  retrieval; without the explicit task types both vectors collapse into a
+  narrow cone and similarity loses discriminative power.
+- `embeddingSourceHash` — sha256 hex of `modelName \x01 composedText`
+  where `composedText = title \x01 description \x01 content` (full text,
+  pre-truncation). Keying the hash on the model name means **changing
+  providers auto-invalidates every existing hash** — the next write to
+  each article re-embeds it under the new provider, no manual backfill.
+- `embeddingProvider` — identifier of the active model, e.g.
+  `'gemini-embedding-001'`. Used in logs and as the hash salt above.
 - `embeddingDimensions` — vector length. MUST match both the active
   provider and the deployed Firestore vector index.
 

@@ -7,18 +7,18 @@ import 'package:news_app_clean_architecture/config/routes/scaffold_with_nav_bar.
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_event.dart';
-import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/article_edit/article_edit_page.dart';
-import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/article_upload/article_upload_page.dart';
-import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/my_articles/my_articles_page.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/screens/article_edit/article_edit_page.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/screens/article_upload/article_upload_page.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/screens/my_articles/my_articles_page.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
-import 'package:news_app_clean_architecture/features/auth/presentation/pages/login/login_page.dart';
-import 'package:news_app_clean_architecture/features/auth/presentation/pages/signup/signup_page.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/screens/login/login_page.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/screens/signup/signup_page.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
-import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/article_detail/article_detail.dart';
-import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
-import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/saved_article/saved_article.dart';
-import 'package:news_app_clean_architecture/features/settings/presentation/pages/settings_page.dart';
+import 'package:news_app_clean_architecture/features/daily_news/presentation/screens/article_detail/article_detail.dart';
+import 'package:news_app_clean_architecture/features/daily_news/presentation/screens/home/daily_news.dart';
+import 'package:news_app_clean_architecture/features/daily_news/presentation/screens/saved_article/saved_article.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/screens/settings_page.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
 
 /// Creates and configures the app-wide [GoRouter].

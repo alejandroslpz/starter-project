@@ -4,12 +4,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:news_app_clean_architecture/core/error/app_exception.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/entities/auth_user.dart';
+import 'package:news_app_clean_architecture/features/auth/domain/params/sign_up_params.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
-import 'package:news_app_clean_architecture/features/auth/presentation/pages/login/login_page.dart';
+import 'package:news_app_clean_architecture/features/auth/presentation/screens/signup/signup_page.dart';
 import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
@@ -29,16 +29,36 @@ Widget _buildPage(AuthBloc bloc) {
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: const LoginPage(),
+      home: const SignupPage(),
     ),
   );
+}
+
+Future<void> _fillAndSubmit(WidgetTester tester) async {
+  await tester.enterText(
+      find.byKey(const Key('signup_displayname_field')), 'Alice');
+  await tester.enterText(
+      find.byKey(const Key('signup_email_field')), 'alice@example.com');
+  await tester.enterText(
+      find.byKey(const Key('signup_password_field')), 'pass1234');
+  await tester.tap(find.byType(ElevatedButton));
+  await tester.pump();
 }
 
 void main() {
   late MockAuthBloc bloc;
 
   setUpAll(() {
-    registerFallbackValue(SignInWithGoogleEvent());
+    registerFallbackValue(
+      const SignUpWithEmailEvent(
+        SignUpParams(email: '', password: '', displayName: ''),
+      ),
+    );
+    registerFallbackValue(
+      const LinkAnonymousWithEmailEvent(
+        SignUpParams(email: '', password: '', displayName: ''),
+      ),
+    );
     registerFallbackValue(const LinkAnonymousWithGoogleEvent());
   });
 
@@ -47,21 +67,19 @@ void main() {
     when(() => bloc.state).thenReturn(const AuthAnonymous(_anonUser));
   });
 
-  tearDown(() {
-    bloc.close();
-  });
+  tearDown(() => bloc.close());
 
-  group('LoginPage return-to navigation', () {
+  group('SignupPage return-to navigation', () {
     Widget buildPageWithRouter(
       AuthBloc authBloc, {
-      String initialLocation = '/login',
+      String initialLocation = '/signup',
     }) {
       final router = GoRouter(
         initialLocation: initialLocation,
         routes: [
           GoRoute(
-            path: '/login',
-            builder: (context, state) => const LoginPage(),
+            path: '/signup',
+            builder: (context, state) => const SignupPage(),
           ),
           GoRoute(
             path: '/article/upload',
@@ -107,7 +125,7 @@ void main() {
 
       await tester.pumpWidget(
         buildPageWithRouter(bloc,
-            initialLocation: '/login?return=%2Farticle%2Fupload'),
+            initialLocation: '/signup?return=%2Farticle%2Fupload'),
       );
       await tester.pump();
       await tester.pump();
@@ -139,40 +157,61 @@ void main() {
 
       expect(find.text('Home'), findsOneWidget);
     });
+
+    testWidgets(
+        'navigates to ?return= on AuthAuthenticated after link-anonymous (anon to authenticated)',
+        (tester) async {
+      whenListen(
+        bloc,
+        Stream.fromIterable([
+          const AuthAnonymous(_anonUser),
+          const AuthAuthenticated(AuthUserEntity(
+            uid: 'anon',
+            email: 'a@b.com',
+            displayName: 'A',
+            providerId: 'password',
+            isAnonymous: false,
+          )),
+        ]),
+        initialState: const AuthAnonymous(_anonUser),
+      );
+
+      await tester.pumpWidget(
+        buildPageWithRouter(bloc,
+            initialLocation: '/signup?return=%2Farticle%2Fupload'),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('ArticleUploadPage'), findsOneWidget);
+    });
   });
 
-  group('LoginPage', () {
+  group('SignupPage', () {
+    testWidgets('renders displayName field', (tester) async {
+      await tester.pumpWidget(_buildPage(bloc));
+      expect(find.byKey(const Key('signup_displayname_field')), findsOneWidget);
+    });
+
     testWidgets('renders email field', (tester) async {
       await tester.pumpWidget(_buildPage(bloc));
-
-      expect(find.byKey(const Key('login_email_field')), findsOneWidget);
+      expect(find.byKey(const Key('signup_email_field')), findsOneWidget);
     });
 
     testWidgets('renders password field', (tester) async {
       await tester.pumpWidget(_buildPage(bloc));
-
-      expect(find.byKey(const Key('login_password_field')), findsOneWidget);
+      expect(find.byKey(const Key('signup_password_field')), findsOneWidget);
     });
 
-    testWidgets('renders Sign in button', (tester) async {
+    testWidgets('renders Create account button', (tester) async {
       await tester.pumpWidget(_buildPage(bloc));
-
-      // AppBar says 'Sign in', button also says 'Sign in' → at least 1
-      expect(find.text('Sign in'), findsWidgets);
-      // The ElevatedButton with 'Sign in' text exists
       expect(
         find.descendant(
           of: find.byType(ElevatedButton),
-          matching: find.text('Sign in'),
+          matching: find.text('Create account'),
         ),
         findsOneWidget,
       );
-    });
-
-    testWidgets('renders Google sign-in button', (tester) async {
-      await tester.pumpWidget(_buildPage(bloc));
-
-      expect(find.textContaining('Google'), findsOneWidget);
     });
 
     testWidgets('shows CircularProgressIndicator when AuthAuthenticating',
@@ -185,73 +224,46 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('CTA is replaced by progress indicator during AuthAuthenticating',
+    testWidgets(
+        'CTA is replaced by progress indicator during AuthAuthenticating',
         (tester) async {
       when(() => bloc.state).thenReturn(const AuthAuthenticating());
 
       await tester.pumpWidget(_buildPage(bloc));
       await tester.pump();
 
-      // The ElevatedButton CTA with 'Sign in' is replaced by CircularProgressIndicator
       expect(
         find.descendant(
           of: find.byType(ElevatedButton),
-          matching: find.text('Sign in'),
+          matching: find.text('Create account'),
         ),
         findsNothing,
       );
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    });
-
-    testWidgets('shows SnackBar when AuthError is emitted', (tester) async {
-      const error = AuthException(
-        message: 'wrong-password',
-        code: 'wrong-password',
-      );
-
-      whenListen(
-        bloc,
-        Stream.fromIterable([
-          const AuthAnonymous(_anonUser),
-          const AuthError(error, previousState: AuthAnonymous(_anonUser)),
-        ]),
-        initialState: const AuthAnonymous(_anonUser),
-      );
-
-      await tester.pumpWidget(_buildPage(bloc));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      expect(find.byType(SnackBar), findsOneWidget);
     });
 
     testWidgets(
-        'Google button dispatches SignInWithGoogleEvent when NOT anonymous',
+        'dispatches SignUpWithEmailEvent when state is NOT AuthAnonymous',
         (tester) async {
       when(() => bloc.state).thenReturn(_unauthUser);
 
       await tester.pumpWidget(_buildPage(bloc));
-      await tester.tap(find.textContaining('Google'));
-      await tester.pump();
+      await _fillAndSubmit(tester);
 
-      verify(() => bloc.add(any(that: isA<SignInWithGoogleEvent>()))).called(1);
-      verifyNever(
-          () => bloc.add(any(that: isA<LinkAnonymousWithGoogleEvent>())));
+      verify(() => bloc.add(any(that: isA<SignUpWithEmailEvent>()))).called(1);
+      verifyNever(() => bloc.add(any(that: isA<LinkAnonymousWithEmailEvent>())));
     });
 
     testWidgets(
-        'Google button dispatches LinkAnonymousWithGoogleEvent when anonymous',
+        'dispatches LinkAnonymousWithEmailEvent when state is AuthAnonymous',
         (tester) async {
       when(() => bloc.state).thenReturn(const AuthAnonymous(_anonUser));
 
       await tester.pumpWidget(_buildPage(bloc));
-      await tester.tap(find.textContaining('Google'));
-      await tester.pump();
+      await _fillAndSubmit(tester);
 
-      verify(() =>
-              bloc.add(any(that: isA<LinkAnonymousWithGoogleEvent>())))
+      verify(() => bloc.add(any(that: isA<LinkAnonymousWithEmailEvent>())))
           .called(1);
-      verifyNever(() => bloc.add(any(that: isA<SignInWithGoogleEvent>())));
+      verifyNever(() => bloc.add(any(that: isA<SignUpWithEmailEvent>())));
     });
   });
 }
