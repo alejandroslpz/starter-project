@@ -58,6 +58,19 @@ service cloud.firestore {
         allow create, delete: if isOwner(userId);
         allow update: if false;
       }
+
+      // Saved articles — bookmarks of NewsAPI (or community) articles, owned
+      // by the user. Schema is intentionally permissive on optional string
+      // fields (NewsAPI articles can have empty author/description), but
+      // requires the canonical identity fields and forbids cross-user writes.
+      match /savedArticles/{articleId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+                              && request.resource.data.url is string
+                              && request.resource.data.title is string
+                              && request.resource.data.source is string;
+        allow delete: if isOwner(userId);
+      }
     }
 
     // Articles — public read for any authenticated user.

@@ -32,7 +32,7 @@ import 'package:news_app_clean_architecture/injection_container.dart';
 ///   /article/edit/:id → ArticleEditPage (auth-required)
 ///   /my-articles    → MyArticlesPage (auth-required)
 ///   /article/:id    → ArticleDetails
-///   /saved          → SavedArticles
+///   /saved          → SavedArticles (auth-required)
 ///   /login          → LoginPage
 ///   /signup         → SignupPage
 class AppRouter {
@@ -138,6 +138,7 @@ class AppRouter {
         ),
         GoRoute(
           path: '/saved',
+          redirect: (context, state) => requireAuth(state),
           builder: (context, state) => const SavedArticles(),
         ),
         GoRoute(

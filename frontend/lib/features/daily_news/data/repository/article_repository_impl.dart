@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:news_app_clean_architecture/core/constants/constants.dart';
 import 'package:news_app_clean_architecture/core/error/app_exception.dart';
-import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/local/app_database.dart';
-import 'package:news_app_clean_architecture/features/daily_news/data/models/article.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/saved_articles_service.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/params/page_params.dart';
@@ -14,9 +14,14 @@ import '../data_sources/remote/news_api_service.dart';
 
 class ArticleRepositoryImpl implements ArticleRepository {
   final NewsApiService _newsApiService;
-  final AppDatabase _appDatabase;
+  final SavedArticlesService _savedArticlesService;
+  final FirebaseAuth _firebaseAuth;
 
-  ArticleRepositoryImpl(this._newsApiService, this._appDatabase);
+  ArticleRepositoryImpl(
+    this._newsApiService,
+    this._savedArticlesService,
+    this._firebaseAuth,
+  );
 
   // /everything supports historical pagination (~30 days back, max 100 results
   // per query), unlike /top-headlines which is a finite "now" snapshot.
@@ -87,19 +92,37 @@ class ArticleRepositoryImpl implements ArticleRepository {
     }
   }
 
+  // Defensive: bootstrap signs in anonymously, so currentUser is normally
+  // non-null. Surfacing AuthException early beats a downstream Firestore
+  // permission-denied that hides the real cause.
+  String _requireUid() {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw const AuthException(
+        message: 'Sign-in required to manage saved articles.',
+        code: 'unauthenticated',
+      );
+    }
+    return user.uid;
+  }
+
   @override
-  Future<List<ArticleEntity>> getSavedArticles() async {
-    final models = await _appDatabase.articleDAO.getArticles();
-    return models.map((model) => model.toEntity()).toList();
+  Future<List<ArticleEntity>> getSavedArticles() {
+    return _savedArticlesService.getSavedArticles(_requireUid());
   }
 
   @override
   Future<void> removeArticle(ArticleEntity article) {
-    return _appDatabase.articleDAO.deleteArticle(ArticleModel.fromEntity(article));
+    return _savedArticlesService.removeArticle(_requireUid(), article);
   }
 
   @override
   Future<void> saveArticle(ArticleEntity article) {
-    return _appDatabase.articleDAO.insertArticle(ArticleModel.fromEntity(article));
+    return _savedArticlesService.saveArticle(_requireUid(), article);
+  }
+
+  @override
+  Future<bool> isArticleSaved(ArticleEntity article) {
+    return _savedArticlesService.isSaved(_requireUid(), article);
   }
 }
