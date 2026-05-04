@@ -128,6 +128,24 @@ abstract class AppLocalizations {
   /// **'All'**
   String get filterAll;
 
+  /// No description provided for @filterForYou.
+  ///
+  /// In en, this message translates to:
+  /// **'For You'**
+  String get filterForYou;
+
+  /// No description provided for @filterForYouEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a few articles and we\'ll find more like them.'**
+  String get filterForYouEmpty;
+
+  /// No description provided for @filterForYouLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Tailoring picks for you…'**
+  String get filterForYouLoading;
+
   /// Filter chip covering NewsAPI health & wellness articles (fitness/workout/nutrition/wellness/exercise/health keyword search).
   ///
   /// In en, this message translates to:
@@ -175,6 +193,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Saved Articles'**
   String get savedArticlesTitle;
+
+  /// No description provided for @articleNewsApiTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'NewsAPI Article'**
+  String get articleNewsApiTitle;
+
+  /// No description provided for @articleCommunityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Community Article'**
+  String get articleCommunityTitle;
 
   /// No description provided for @savedArticlesEmpty.
   ///

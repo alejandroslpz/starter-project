@@ -24,6 +24,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get filterAll => 'All';
 
   @override
+  String get filterForYou => 'For You';
+
+  @override
+  String get filterForYouEmpty =>
+      'Save a few articles and we\'ll find more like them.';
+
+  @override
+  String get filterForYouLoading => 'Tailoring picks for you…';
+
+  @override
   String get filterHealth => 'Health';
 
   @override
@@ -47,6 +57,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get savedArticlesTitle => 'Saved Articles';
+
+  @override
+  String get articleNewsApiTitle => 'NewsAPI Article';
+
+  @override
+  String get articleCommunityTitle => 'Community Article';
 
   @override
   String get savedArticlesEmpty => 'No saved articles yet.';

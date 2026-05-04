@@ -4,7 +4,7 @@ import 'package:news_app_clean_architecture/features/article_upload/domain/entit
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 import 'package:news_app_clean_architecture/shared/feed/domain/entities/feed_item.dart';
 
-enum FeedFilter { all, fitnessNews, news, community }
+enum FeedFilter { all, forYou, fitnessNews, news, community }
 
 final class FeedState extends Equatable {
   final List<ArticleEntity> _newsArticles;
@@ -22,6 +22,8 @@ final class FeedState extends Equatable {
   final AppException? error;
   final List<String>? searchResults;
   final bool searchFallbackActive;
+  final List<ArticleEntity>? recommendations;
+  final bool isLoadingRecommendations;
 
   const FeedState({
     List<ArticleEntity> newsArticles = const [],
@@ -39,6 +41,8 @@ final class FeedState extends Equatable {
     this.error,
     this.searchResults,
     this.searchFallbackActive = false,
+    this.recommendations,
+    this.isLoadingRecommendations = false,
   })  : _newsArticles = newsArticles,
         _fitnessArticles = fitnessArticles,
         _communityArticles = communityArticles;
@@ -85,6 +89,12 @@ final class FeedState extends Equatable {
         filtered.addAll(_fitnessArticles.map(NewsApiFeedItem.new));
         filtered.addAll(_newsArticles.map(NewsApiFeedItem.new));
         filtered.addAll(_communityArticles.map(JournalistFeedItem.new));
+      case FeedFilter.forYou:
+        // Server-ranked by similarity — preserve that order, do NOT sort
+        // by publishedAt below.
+        return (recommendations ?? const <ArticleEntity>[])
+            .map(NewsApiFeedItem.new)
+            .toList();
       case FeedFilter.fitnessNews:
         filtered.addAll(_fitnessArticles.map(NewsApiFeedItem.new));
       case FeedFilter.news:
@@ -122,6 +132,8 @@ final class FeedState extends Equatable {
     Object? error = _sentinel,
     Object? searchResults = _sentinel,
     bool? searchFallbackActive,
+    Object? recommendations = _sentinel,
+    bool? isLoadingRecommendations,
   }) {
     return FeedState(
       newsArticles: newsArticles ?? _newsArticles,
@@ -141,6 +153,11 @@ final class FeedState extends Equatable {
           ? this.searchResults
           : searchResults as List<String>?,
       searchFallbackActive: searchFallbackActive ?? this.searchFallbackActive,
+      recommendations: recommendations == _sentinel
+          ? this.recommendations
+          : recommendations as List<ArticleEntity>?,
+      isLoadingRecommendations:
+          isLoadingRecommendations ?? this.isLoadingRecommendations,
     );
   }
 
@@ -161,6 +178,8 @@ final class FeedState extends Equatable {
         error,
         searchResults,
         searchFallbackActive,
+        recommendations,
+        isLoadingRecommendations,
       ];
 }
 

@@ -9,6 +9,7 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/entities/
 import 'package:news_app_clean_architecture/features/daily_news/domain/params/page_params.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_fitness_articles.dart';
+import 'package:news_app_clean_architecture/features/recommendations/domain/use_cases/recommend_for_user.dart';
 import 'package:news_app_clean_architecture/features/search/domain/params/semantic_search_params.dart';
 import 'package:news_app_clean_architecture/features/search/domain/use_cases/semantic_search.dart';
 import 'feed_event.dart';
@@ -22,6 +23,7 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
   final GetFitnessArticlesUseCase _getFitnessArticles;
   final WatchCommunityFeedUseCase _watchCommunityFeed;
   final SemanticSearchUseCase _semanticSearch;
+  final RecommendForUserUseCase _recommendForUser;
 
   StreamSubscription<List<JournalistArticleEntity>>? _communitySub;
   Timer? _searchDebounce;
@@ -31,10 +33,20 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     this._getFitnessArticles,
     this._watchCommunityFeed,
     this._semanticSearch,
+    this._recommendForUser,
   ) : super(const FeedState()) {
     on<LoadFeedEvent>(_onLoad);
     on<LoadMoreEvent>(_onLoadMore);
-    on<FilterChangedEvent>((e, emit) => emit(state.copyWith(filter: e.filter)));
+    on<FilterChangedEvent>(_onFilterChanged);
+    on<RecommendationsLoadedEvent>((e, emit) => emit(state.copyWith(
+          recommendations: e.articles,
+          isLoadingRecommendations: false,
+          error: null,
+        )));
+    on<RecommendationsFailedEvent>((e, emit) => emit(state.copyWith(
+          isLoadingRecommendations: false,
+          error: e.error,
+        )));
     on<SearchQueryChangedEvent>(_onSearchQueryChanged);
     on<SearchExecutedEvent>(_onSearchExecuted);
     on<SearchSucceededEvent>((e, emit) => emit(state.copyWith(
@@ -63,6 +75,24 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
         (e, emit) => emit(state.copyWith(communityArticles: e.articles)));
     on<CommunityFeedFailedEvent>(
         (e, emit) => emit(state.copyWith(error: e.error)));
+  }
+
+  Future<void> _onFilterChanged(
+    FilterChangedEvent event,
+    Emitter<FeedState> emit,
+  ) async {
+    emit(state.copyWith(filter: event.filter));
+    if (event.filter != FeedFilter.forYou) return;
+
+    // Refresh recommendations every time the user lands on For You — keeps
+    // the list fresh when saves change between visits.
+    emit(state.copyWith(isLoadingRecommendations: true, error: null));
+    final result = await _recommendForUser.call(params: 20);
+    if (result is DataSuccess<List<ArticleEntity>>) {
+      add(RecommendationsLoadedEvent(result.data ?? const []));
+    } else if (result is DataFailed<List<ArticleEntity>>) {
+      add(RecommendationsFailedEvent(result.error!));
+    }
   }
 
   void _onSearchQueryChanged(
@@ -171,6 +201,10 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
           if (state.hasMoreFitness) _loadMoreFitness(emit),
         ]);
         _bumpCommunityLimit(emit);
+      case FeedFilter.forYou:
+        // Recommendation list is fixed-size from a single API call; no
+        // pagination semantics yet.
+        break;
     }
 
     emit(state.copyWith(isLoadingMore: false));

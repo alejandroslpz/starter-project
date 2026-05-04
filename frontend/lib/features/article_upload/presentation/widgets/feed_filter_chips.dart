@@ -7,6 +7,8 @@ extension _FeedFilterLocalizedLabel on FeedFilter {
     switch (this) {
       case FeedFilter.all:
         return t.filterAll;
+      case FeedFilter.forYou:
+        return t.filterForYou;
       // Internal name `fitnessNews` is kept (Symmetry's fitness vertical),
       // but the user-facing label is "Health" because the underlying
       // NewsAPI query is broader than fitness alone.
