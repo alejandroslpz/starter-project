@@ -16,6 +16,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_state.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/article_edit/article_edit_page.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockUploadArticleBloc
     extends MockBloc<UploadArticleEvent, UploadArticleState>
@@ -66,7 +67,11 @@ Widget _buildPage(MockUploadArticleBloc bloc, MockWatchArticleByIdUseCase watchU
       ),
     ],
   );
-  return MaterialApp.router(routerConfig: router);
+  return MaterialApp.router(
+    routerConfig: router,
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+  );
 }
 
 void main() {

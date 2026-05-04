@@ -12,6 +12,13 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Built-in i18n delegates required by flutter gen-l10n output.
+  flutter_localizations:
+    sdk: flutter
+
+  # Persist user locale preference across app launches.
+  shared_preferences: ^2.3.0
+
   cupertino_icons: ^1.0.9
 
   #icon
@@ -93,6 +100,7 @@ dependency_overrides:
 flutter:
 
   uses-material-design: true
+  generate: true
 
 
   fonts:

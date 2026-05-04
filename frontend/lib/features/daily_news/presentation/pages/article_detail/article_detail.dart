@@ -6,6 +6,7 @@ import 'package:ionicons/ionicons.dart';
 import 'package:news_app_clean_architecture/features/article_upload/domain/entities/journalist_article.dart';
 import 'package:news_app_clean_architecture/features/article_upload/domain/use_cases/watch_article_by_id.dart';
 import '../../../../../injection_container.dart';
+import '../../../../../l10n/generated/app_localizations.dart';
 import '../../../domain/entities/article.dart';
 import '../../bloc/article/local/local_article_bloc.dart';
 import '../../bloc/article/local/local_article_event.dart';
@@ -31,8 +32,10 @@ class ArticleDetailsView extends HookWidget {
       return _CommunityArticleByIdLoader(articleId: communityArticleId!);
     }
     if (article == null) {
-      return const Scaffold(
-        body: Center(child: Text('Article not found.')),
+      return Scaffold(
+        body: Center(
+          child: Text(AppLocalizations.of(context).articleDetailNotFound),
+        ),
       );
     }
     return BlocProvider(
@@ -133,9 +136,9 @@ class ArticleDetailsView extends HookWidget {
   void _onFloatingActionButtonPressed(BuildContext context) {
     BlocProvider.of<LocalArticleBloc>(context).add(SaveArticle(article!));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         backgroundColor: Colors.black,
-        content: Text('Article saved successfully.'),
+        content: Text(AppLocalizations.of(context).articleSavedSuccess),
       ),
     );
   }
@@ -167,14 +170,18 @@ class _CommunityArticleByIdLoader extends HookWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (snapshot.hasError) {
-      return const Scaffold(
-        body: Center(child: Text("Couldn't load article. Pull back and retry.")),
+      return Scaffold(
+        body: Center(
+          child: Text(AppLocalizations.of(context).articleDetailLoadError),
+        ),
       );
     }
     final article = snapshot.data;
     if (article == null) {
-      return const Scaffold(
-        body: Center(child: Text('Article not found.')),
+      return Scaffold(
+        body: Center(
+          child: Text(AppLocalizations.of(context).articleDetailNotFound),
+        ),
       );
     }
     return _CommunityArticleDetail(article: article);

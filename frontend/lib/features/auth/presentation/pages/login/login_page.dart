@@ -9,6 +9,7 @@ import 'package:news_app_clean_architecture/features/auth/presentation/widgets/a
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_validators.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/google_sign_in_button.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/password_reset_dialog.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 /// Login page — allows sign in with email/password or Google.
 ///
@@ -59,7 +60,9 @@ class _LoginPageState extends State<LoginPage> {
               .add(SendPasswordResetEvent(email));
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reset email sent')),
+            SnackBar(
+              content: Text(AppLocalizations.of(context).authResetPasswordSent),
+            ),
           );
         },
       ),
@@ -68,8 +71,9 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(title: Text(t.authSignInTitle)),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
@@ -99,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   AuthTextField(
                     key: const Key('login_email_field'),
-                    label: 'Email',
+                    label: t.authEmailLabel,
                     controller: _emailController,
                     readOnly: isLoading,
                     keyboardType: TextInputType.emailAddress,
@@ -112,7 +116,7 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 16),
                   AuthTextField(
                     key: const Key('login_password_field'),
-                    label: 'Password',
+                    label: t.authPasswordLabel,
                     controller: _passwordController,
                     obscureText: true,
                     readOnly: isLoading,
@@ -128,7 +132,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: TextButton(
                       onPressed:
                           isLoading ? null : () => _onForgotPassword(context),
-                      child: const Text('Forgot password?'),
+                      child: Text(t.authForgotPassword),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -137,7 +141,7 @@ class _LoginPageState extends State<LoginPage> {
                   else
                     ElevatedButton(
                       onPressed: () => _onSignIn(context),
-                      child: const Text('Sign in'),
+                      child: Text(t.authSignInAction),
                     ),
                   const SizedBox(height: 12),
                   if (!isLoading)
@@ -159,11 +163,11 @@ class _LoginPageState extends State<LoginPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account?"),
+                      Text(t.authNoAccount),
                       TextButton(
                         onPressed:
                             isLoading ? null : () => context.push('/signup'),
-                        child: const Text('Sign up'),
+                        child: Text(t.authSignUpAction),
                       ),
                     ],
                   ),

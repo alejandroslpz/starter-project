@@ -7,6 +7,7 @@ import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_text_field.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_validators.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 /// Sign-up page — allows creating an account with email, password, and display name.
 class SignupPage extends StatefulWidget {
@@ -57,8 +58,9 @@ class _SignupPageState extends State<SignupPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Create account')),
+      appBar: AppBar(title: Text(t.authSignUpTitle)),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
@@ -86,7 +88,7 @@ class _SignupPageState extends State<SignupPage> {
               children: [
                 AuthTextField(
                   key: const Key('signup_displayname_field'),
-                  label: 'Display name',
+                  label: t.authDisplayNameLabel,
                   controller: _displayNameController,
                   readOnly: isLoading,
                   errorText:
@@ -98,7 +100,7 @@ class _SignupPageState extends State<SignupPage> {
                 const SizedBox(height: 16),
                 AuthTextField(
                   key: const Key('signup_email_field'),
-                  label: 'Email',
+                  label: t.authEmailLabel,
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   readOnly: isLoading,
@@ -110,7 +112,7 @@ class _SignupPageState extends State<SignupPage> {
                 const SizedBox(height: 16),
                 AuthTextField(
                   key: const Key('signup_password_field'),
-                  label: 'Password',
+                  label: t.authPasswordLabel,
                   controller: _passwordController,
                   obscureText: true,
                   readOnly: isLoading,
@@ -126,16 +128,16 @@ class _SignupPageState extends State<SignupPage> {
                 else
                   ElevatedButton(
                     onPressed: () => _onCreateAccount(context),
-                    child: const Text('Create account'),
+                    child: Text(t.authSignUpAction),
                   ),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Already have an account?'),
+                    Text(t.authHaveAccount),
                     TextButton(
                       onPressed: isLoading ? null : () => context.pop(),
-                      child: const Text('Sign in'),
+                      child: Text(t.authSignInAction),
                     ),
                   ],
                 ),

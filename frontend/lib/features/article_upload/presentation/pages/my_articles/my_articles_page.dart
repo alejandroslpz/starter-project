@@ -6,6 +6,7 @@ import 'package:news_app_clean_architecture/features/article_upload/domain/entit
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_event.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_state.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MyArticlesPage extends StatefulWidget {
   final String userId;
@@ -27,7 +28,7 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('My Articles')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).myArticlesTitle)),
       body: BlocBuilder<MyArticlesBloc, MyArticlesState>(
         builder: (context, state) {
           if (state.isLoading) {
@@ -108,19 +109,20 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
     BuildContext context,
     JournalistArticleEntity article,
   ) async {
+    final t = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete article?'),
-        content: Text('Are you sure you want to delete "${article.title}"?'),
+        title: Text(t.deleteArticleTitle),
+        content: Text(t.deleteArticleConfirm(article.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: Text(t.actionDelete),
           ),
         ],
       ),
@@ -136,20 +138,21 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
     BuildContext context,
     DraftArticleEntity draft,
   ) async {
+    final t = AppLocalizations.of(context);
+    final draftTitle = draft.title.isEmpty ? 'Untitled draft' : draft.title;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete draft?'),
-        content: Text(
-            'Are you sure you want to delete "${draft.title.isEmpty ? 'Untitled draft' : draft.title}"?'),
+        title: Text(t.deleteDraftTitle),
+        content: Text(t.deleteArticleConfirm(draftTitle)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(t.actionCancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
+            child: Text(t.actionDelete),
           ),
         ],
       ),
@@ -211,7 +214,7 @@ class _DraftTile extends StatelessWidget {
         ? draft.description
         : 'Untitled draft';
     return ListTile(
-      leading: const Chip(label: Text('Draft')),
+      leading: Chip(label: Text(AppLocalizations.of(context).draftBadge)),
       title: Text(draft.title.isNotEmpty ? draft.title : 'Untitled draft'),
       subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: IconButton(

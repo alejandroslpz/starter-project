@@ -21,6 +21,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 // Mock BLoCs — bloc_test + mocktail pattern.
 class MockRemoteArticlesBloc
@@ -107,7 +108,11 @@ Widget _buildTestWidget(
       BlocProvider<AuthBloc>.value(value: authBloc),
       if (feedBloc != null) BlocProvider<FeedBloc>.value(value: feedBloc),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(
+      routerConfig: router,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ),
   );
 }
 

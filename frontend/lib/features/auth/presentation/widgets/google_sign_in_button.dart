@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 /// Button that triggers Google Sign-In flow.
 class GoogleSignInButton extends StatelessWidget {
@@ -16,12 +17,12 @@ class GoogleSignInButton extends StatelessWidget {
         side: const BorderSide(color: Colors.grey),
         minimumSize: const Size(double.infinity, 48),
       ),
-      child: const Row(
+      child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.g_mobiledata, size: 24),
-          SizedBox(width: 8),
-          Text('Sign in with Google'),
+          const Icon(Icons.g_mobiledata, size: 24),
+          const SizedBox(width: 8),
+          Text(AppLocalizations.of(context).authGoogleSignIn),
         ],
       ),
     );

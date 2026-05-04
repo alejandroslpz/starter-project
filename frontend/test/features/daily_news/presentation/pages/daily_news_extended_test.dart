@@ -18,6 +18,7 @@ import 'package:news_app_clean_architecture/features/daily_news/presentation/blo
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_state.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockFeedBloc extends MockBloc<FeedEvent, FeedState> implements FeedBloc {}
 
@@ -89,7 +90,11 @@ Widget _buildPage({
       BlocProvider<AuthBloc>.value(value: authBloc),
       BlocProvider<FeedBloc>.value(value: feedBloc),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(
+      routerConfig: router,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ),
   );
 }
 

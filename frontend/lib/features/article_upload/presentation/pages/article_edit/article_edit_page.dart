@@ -10,6 +10,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/article_upload_form.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/publishing_overlay.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class ArticleEditPage extends StatefulWidget {
   final String articleId;
@@ -38,7 +39,7 @@ class _ArticleEditPageState extends State<ArticleEditPage> {
       listener: (context, state) {
         if (state.isPublished) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saved')),
+            SnackBar(content: Text(AppLocalizations.of(context).savedSnack)),
           );
           context.pop();
         }
@@ -59,14 +60,14 @@ class _ArticleEditPageState extends State<ArticleEditPage> {
           final article = snapshot.data;
           if (article == null) {
             return Scaffold(
-              appBar: AppBar(title: const Text('Edit Article')),
-              body: const Center(child: Text('Article not found.')),
+              appBar: AppBar(title: Text(AppLocalizations.of(context).editArticleTitle)),
+              body: Center(child: Text(AppLocalizations.of(context).articleDetailNotFound)),
             );
           }
           final currentUid = sl<FirebaseAuth>().currentUser?.uid;
           if (currentUid == null || article.userId != currentUid) {
             return Scaffold(
-              appBar: AppBar(title: const Text('Edit Article')),
+              appBar: AppBar(title: Text(AppLocalizations.of(context).editArticleTitle)),
               body: const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -90,7 +91,7 @@ class _ArticleEditPageState extends State<ArticleEditPage> {
           return BlocBuilder<UploadArticleBloc, UploadArticleState>(
             builder: (context, state) {
               return Scaffold(
-                appBar: AppBar(title: const Text('Edit Article')),
+                appBar: AppBar(title: Text(AppLocalizations.of(context).editArticleTitle)),
                 body: Stack(
                   children: [
                     ArticleUploadForm(state: state),

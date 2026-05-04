@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_state.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/feed_filter_chips.dart';
 
-Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
+import '../../../../test_helpers/localization_test_helper.dart';
+
+Widget _wrap(Widget child) => wrapWithLocalizations(child);
 
 void main() {
   group('FeedFilterChips', () {

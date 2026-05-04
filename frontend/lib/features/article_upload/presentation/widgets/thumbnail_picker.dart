@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class ThumbnailPicker extends StatelessWidget {
   final String? localImagePath;
@@ -78,7 +79,7 @@ class _EmptyThumbnail extends StatelessWidget {
         children: [
           const Icon(Icons.image_outlined, size: 40),
           const SizedBox(height: 8),
-          const Text('Pick a thumbnail'),
+          Text(AppLocalizations.of(context).thumbnailPickerTitle),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -86,13 +87,13 @@ class _EmptyThumbnail extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onGallery,
                 icon: const Icon(Icons.photo_library_outlined, size: 16),
-                label: const Text('From Gallery'),
+                label: Text(AppLocalizations.of(context).thumbnailFromGallery),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: onCamera,
                 icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                label: const Text('From Camera'),
+                label: Text(AppLocalizations.of(context).thumbnailFromCamera),
               ),
             ],
           ),

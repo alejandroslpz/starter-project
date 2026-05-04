@@ -8,6 +8,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/category_chips.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/tags_field.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/thumbnail_picker.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class ArticleUploadForm extends StatefulWidget {
   final UploadArticleState state;
@@ -112,14 +113,16 @@ class _ArticleUploadFormState extends State<ArticleUploadForm> {
               onChanged: (v) => bloc.add(ContentChangedEvent(v)),
             ),
             const SizedBox(height: 16),
-            Text('Category', style: Theme.of(context).textTheme.labelLarge),
+            Text(AppLocalizations.of(context).fieldCategory,
+                style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             CategoryChips(
               selected: widget.state.category,
               onSelected: (c) => bloc.add(CategoryChangedEvent(c)),
             ),
             const SizedBox(height: 16),
-            Text('Tags', style: Theme.of(context).textTheme.labelLarge),
+            Text(AppLocalizations.of(context).fieldTags,
+                style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             TagsField(
               tags: widget.state.tags,
@@ -132,9 +135,13 @@ class _ArticleUploadFormState extends State<ArticleUploadForm> {
               ),
               initialValue: widget.state.language,
               decoration: const InputDecoration(labelText: 'Language'),
-              items: const [
-                DropdownMenuItem(value: 'en', child: Text('English')),
-                DropdownMenuItem(value: 'es', child: Text('Spanish')),
+              items: [
+                DropdownMenuItem(
+                    value: 'en',
+                    child: Text(AppLocalizations.of(context).languageEnglish)),
+                DropdownMenuItem(
+                    value: 'es',
+                    child: Text(AppLocalizations.of(context).languageSpanish)),
               ],
               onChanged: (v) {
                 if (v != null) bloc.add(LanguageChangedEvent(v));

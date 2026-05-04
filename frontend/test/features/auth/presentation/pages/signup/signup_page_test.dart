@@ -10,6 +10,7 @@ import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_state.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/pages/signup/signup_page.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
     implements AuthBloc {}
@@ -25,7 +26,11 @@ const _unauthUser = AuthUnauthenticated();
 Widget _buildPage(AuthBloc bloc) {
   return BlocProvider<AuthBloc>.value(
     value: bloc,
-    child: const MaterialApp(home: SignupPage()),
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const SignupPage(),
+    ),
   );
 }
 
@@ -92,7 +97,11 @@ void main() {
       );
       return BlocProvider<AuthBloc>.value(
         value: authBloc,
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+        ),
       );
     }
 
