@@ -49,7 +49,10 @@ import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/sign_up_with_email.dart';
 import 'package:news_app_clean_architecture/features/auth/domain/use_cases/watch_auth_state.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/local/saved_articles_migration.dart';
 import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/news_api_service.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/saved_articles_service.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/saved_articles_service_impl.dart';
 import 'package:news_app_clean_architecture/features/daily_news/data/repository/article_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/repository/article_repository.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_article.dart';
@@ -57,6 +60,7 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'features/daily_news/data/data_sources/local/app_database.dart';
 import 'features/daily_news/domain/use_cases/get_saved_article.dart';
+import 'features/daily_news/domain/use_cases/is_article_saved.dart';
 import 'features/daily_news/domain/use_cases/remove_article.dart';
 import 'features/daily_news/domain/use_cases/save_article.dart';
 import 'features/daily_news/presentation/bloc/article/local/local_article_bloc.dart';
@@ -96,8 +100,16 @@ Future<void> initializeDependencies() async {
   // Dependencies
   sl.registerSingleton<NewsApiService>(NewsApiService(sl()));
 
+  sl.registerLazySingleton<SavedArticlesService>(
+    () => SavedArticlesServiceImpl(sl<FirebaseFirestore>()),
+  );
+
   sl.registerSingleton<ArticleRepository>(
-    ArticleRepositoryImpl(sl(),sl())
+    ArticleRepositoryImpl(
+      sl<NewsApiService>(),
+      sl<SavedArticlesService>(),
+      sl<FirebaseAuth>(),
+    ),
   );
   
   //UseCases
@@ -119,6 +131,10 @@ Future<void> initializeDependencies() async {
   
   sl.registerSingleton<RemoveArticleUseCase>(
     RemoveArticleUseCase(sl())
+  );
+
+  sl.registerSingleton<IsArticleSavedUseCase>(
+    IsArticleSavedUseCase(sl())
   );
 
 
@@ -344,6 +360,15 @@ Future<void> initializeDependencies() async {
     () => LocaleBloc(
       sl<GetLocalePreferenceUseCase>(),
       sl<SetLocalePreferenceUseCase>(),
+    ),
+  );
+
+  sl.registerLazySingleton<SavedArticlesMigration>(
+    () => SavedArticlesMigration(
+      sl<AppDatabase>().articleDAO,
+      sl<SavedArticlesService>(),
+      sl<FirebaseAuth>(),
+      sl<SharedPreferences>(),
     ),
   );
 }

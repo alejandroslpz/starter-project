@@ -1,45 +1,47 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:retrofit/retrofit.dart';
 import 'package:news_app_clean_architecture/core/error/app_exception.dart';
 import 'package:news_app_clean_architecture/core/resources/data_state.dart';
-import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/local/DAO/article_dao.dart';
-import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/local/app_database.dart';
 import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/news_api_service.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/remote/saved_articles_service.dart';
 import 'package:news_app_clean_architecture/features/daily_news/data/models/article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/data/repository/article_repository_impl.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 
 class MockNewsApiService extends Mock implements NewsApiService {}
 
-class MockArticleDao extends Mock implements ArticleDao {}
+class MockSavedArticlesService extends Mock implements SavedArticlesService {}
 
-class FakeArticleModel extends Fake implements ArticleModel {}
+class MockFirebaseAuth extends Mock implements FirebaseAuth {}
 
-class MockAppDatabase extends Mock implements AppDatabase {
-  final ArticleDao _dao;
-  MockAppDatabase(this._dao);
+class MockUser extends Mock implements User {}
 
-  @override
-  ArticleDao get articleDAO => _dao;
-}
+class FakeArticleEntity extends Fake implements ArticleEntity {}
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(FakeArticleModel());
+    registerFallbackValue(FakeArticleEntity());
   });
 
   late MockNewsApiService mockApiService;
-  late MockArticleDao mockDao;
-  late MockAppDatabase mockDatabase;
+  late MockSavedArticlesService mockSavedService;
+  late MockFirebaseAuth mockAuth;
   late ArticleRepositoryImpl repository;
 
   setUp(() {
     mockApiService = MockNewsApiService();
-    mockDao = MockArticleDao();
-    mockDatabase = MockAppDatabase(mockDao);
-    repository = ArticleRepositoryImpl(mockApiService, mockDatabase);
+    mockSavedService = MockSavedArticlesService();
+    mockAuth = MockFirebaseAuth();
+    repository = ArticleRepositoryImpl(mockApiService, mockSavedService, mockAuth);
+
+    // Default: an anonymous user is signed in. Individual tests can
+    // override this to test the unauthenticated branch.
+    final user = MockUser();
+    when(() => user.uid).thenReturn('anon-uid');
+    when(() => mockAuth.currentUser).thenReturn(user);
   });
 
   const testModels = [
@@ -147,52 +149,67 @@ void main() {
     });
   });
 
-  group('ArticleRepositoryImpl local CRUD', () {
-    test('getSavedArticles returns entities from DAO', () async {
-      when(() => mockDao.getArticles()).thenAnswer((_) async => testModels);
+  group('ArticleRepositoryImpl saved CRUD (Firestore-backed)', () {
+    const entity = ArticleEntity(
+      author: 'Author',
+      title: 'Title',
+      description: 'Desc',
+      url: 'https://example.com',
+      urlToImage: 'https://example.com/img.jpg',
+      publishedAt: '2024-01-01',
+      content: 'Content',
+    );
+
+    test('getSavedArticles forwards to service with the current uid', () async {
+      when(() => mockSavedService.getSavedArticles('anon-uid'))
+          .thenAnswer((_) async => const [entity]);
 
       final result = await repository.getSavedArticles();
 
-      expect(result, isA<List<ArticleEntity>>());
-      expect(result, hasLength(testModels.length));
-      expect(result.first.title, equals(testModels.first.title));
-      verify(() => mockDao.getArticles()).called(1);
+      expect(result, hasLength(1));
+      expect(result.first.title, equals('Title'));
+      verify(() => mockSavedService.getSavedArticles('anon-uid')).called(1);
     });
 
-    test('saveArticle delegates to articleDAO.insertArticle', () async {
-      const entity = ArticleEntity(
-        id: 1,
-        author: 'Author',
-        title: 'Title',
-        description: 'Desc',
-        url: 'https://example.com',
-        urlToImage: 'https://example.com/img.jpg',
-        publishedAt: '2024-01-01',
-        content: 'Content',
-      );
-      when(() => mockDao.insertArticle(any())).thenAnswer((_) async {});
+    test('saveArticle forwards to service with the current uid', () async {
+      when(() => mockSavedService.saveArticle('anon-uid', any()))
+          .thenAnswer((_) async {});
 
       await repository.saveArticle(entity);
 
-      verify(() => mockDao.insertArticle(any())).called(1);
+      verify(() => mockSavedService.saveArticle('anon-uid', entity)).called(1);
     });
 
-    test('removeArticle delegates to articleDAO.deleteArticle', () async {
-      const entity = ArticleEntity(
-        id: 1,
-        author: 'Author',
-        title: 'Title',
-        description: 'Desc',
-        url: 'https://example.com',
-        urlToImage: 'https://example.com/img.jpg',
-        publishedAt: '2024-01-01',
-        content: 'Content',
-      );
-      when(() => mockDao.deleteArticle(any())).thenAnswer((_) async {});
+    test('removeArticle forwards to service with the current uid', () async {
+      when(() => mockSavedService.removeArticle('anon-uid', any()))
+          .thenAnswer((_) async {});
 
       await repository.removeArticle(entity);
 
-      verify(() => mockDao.deleteArticle(any())).called(1);
+      verify(() => mockSavedService.removeArticle('anon-uid', entity)).called(1);
+    });
+
+    test('isArticleSaved forwards to service with the current uid', () async {
+      when(() => mockSavedService.isSaved('anon-uid', any()))
+          .thenAnswer((_) async => true);
+
+      final result = await repository.isArticleSaved(entity);
+
+      expect(result, isTrue);
+      verify(() => mockSavedService.isSaved('anon-uid', entity)).called(1);
+    });
+
+    test('throws AuthException when no Firebase user is signed in', () async {
+      when(() => mockAuth.currentUser).thenReturn(null);
+
+      expect(() => repository.getSavedArticles(),
+          throwsA(isA<AuthException>()));
+      expect(() => repository.saveArticle(entity),
+          throwsA(isA<AuthException>()));
+      expect(() => repository.removeArticle(entity),
+          throwsA(isA<AuthException>()));
+      expect(() => repository.isArticleSaved(entity),
+          throwsA(isA<AuthException>()));
     });
   });
 }

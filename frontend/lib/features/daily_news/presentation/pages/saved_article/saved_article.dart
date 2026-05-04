@@ -56,9 +56,10 @@ class SavedArticles extends HookWidget {
     );
   }
 
-  void _onBackButtonTapped(BuildContext context) {
-    Navigator.pop(context);
-  }
+  // context.go('/login?return=/saved') replaces the stack; without the
+  // canPop guard, the back button would assert.
+  void _onBackButtonTapped(BuildContext context) =>
+      context.canPop() ? context.pop() : context.go('/');
 }
 
 class _SavedArticlesList extends StatelessWidget {

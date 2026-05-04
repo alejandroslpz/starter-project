@@ -9,6 +9,7 @@ import 'package:news_app_clean_architecture/features/auth/domain/use_cases/boots
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
+import 'package:news_app_clean_architecture/features/daily_news/data/data_sources/local/saved_articles_migration.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
 import 'package:news_app_clean_architecture/features/settings/domain/entities/locale_preference.dart';
 import 'package:news_app_clean_architecture/features/settings/presentation/bloc/locale/locale_bloc.dart';
@@ -50,6 +51,9 @@ Future<void> main() async {
     // Firebase Console or device offline.
     debugPrint('Auth bootstrap failed: $e');
   }
+
+  // Must run after the auth bootstrap so we have a uid to write under.
+  await sl<SavedArticlesMigration>().run();
 
   runApp(const MyApp());
 }
