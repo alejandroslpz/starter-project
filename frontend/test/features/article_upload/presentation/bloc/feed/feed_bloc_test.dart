@@ -15,6 +15,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/daily_news/domain/entities/article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_article.dart';
 import 'package:news_app_clean_architecture/features/daily_news/domain/use_cases/get_fitness_articles.dart';
+import 'package:news_app_clean_architecture/features/recommendations/domain/use_cases/recommend_for_user.dart';
 import 'package:news_app_clean_architecture/features/search/domain/params/semantic_search_params.dart';
 import 'package:news_app_clean_architecture/features/search/domain/use_cases/semantic_search.dart';
 import 'package:news_app_clean_architecture/shared/feed/domain/entities/feed_item.dart';
@@ -28,6 +29,8 @@ class MockWatchCommunityFeedUseCase extends Mock
     implements WatchCommunityFeedUseCase {}
 
 class MockSemanticSearchUseCase extends Mock implements SemanticSearchUseCase {}
+
+class MockRecommendForUserUseCase extends Mock implements RecommendForUserUseCase {}
 
 final _newsArticles = [
   const ArticleEntity(
@@ -78,16 +81,20 @@ void main() {
   late MockGetFitnessArticlesUseCase getFitnessArticlesUseCase;
   late MockWatchCommunityFeedUseCase watchCommunityFeedUseCase;
   late MockSemanticSearchUseCase semanticSearchUseCase;
+  late MockRecommendForUserUseCase recommendForUserUseCase;
 
   setUp(() {
     getArticleUseCase = MockGetArticleUseCase();
     getFitnessArticlesUseCase = MockGetFitnessArticlesUseCase();
     watchCommunityFeedUseCase = MockWatchCommunityFeedUseCase();
     semanticSearchUseCase = MockSemanticSearchUseCase();
+    recommendForUserUseCase = MockRecommendForUserUseCase();
     when(() => getFitnessArticlesUseCase.call(params: any(named: 'params')))
         .thenAnswer((_) async => const DataSuccess(<ArticleEntity>[]));
     when(() => semanticSearchUseCase.call(params: any(named: 'params')))
         .thenAnswer((_) async => const DataSuccess(<String>[]));
+    when(() => recommendForUserUseCase.call(params: any(named: 'params')))
+        .thenAnswer((_) async => const DataSuccess(<ArticleEntity>[]));
   });
 
   FeedBloc buildBloc() => FeedBloc(
@@ -95,6 +102,7 @@ void main() {
         getFitnessArticlesUseCase,
         watchCommunityFeedUseCase,
         semanticSearchUseCase,
+        recommendForUserUseCase,
       );
 
   group('FeedBloc', () {
@@ -406,6 +414,71 @@ void main() {
       final items = state.items;
       expect(items.any((i) => i is NewsApiFeedItem), isTrue);
       expect(items.any((i) => i is JournalistFeedItem), isTrue);
+    });
+
+    blocTest<FeedBloc, FeedState>(
+      'FilterChangedEvent(forYou) flips filter, sets loading, and dispatches recommend',
+      setUp: () {
+        when(() => recommendForUserUseCase.call(params: any(named: 'params')))
+            .thenAnswer((_) async => const DataSuccess(<ArticleEntity>[
+                  ArticleEntity(
+                    title: 'rec-1',
+                    description: 'd',
+                    urlToImage: 'https://e.com/i.jpg',
+                  ),
+                ]));
+      },
+      build: buildBloc,
+      act: (bloc) => bloc.add(const FilterChangedEvent(FeedFilter.forYou)),
+      skip: 0,
+      wait: const Duration(milliseconds: 50),
+      verify: (bloc) {
+        expect(bloc.state.filter, FeedFilter.forYou);
+        expect(bloc.state.recommendations, hasLength(1));
+        expect(bloc.state.recommendations!.first.title, 'rec-1');
+        expect(bloc.state.isLoadingRecommendations, isFalse);
+      },
+    );
+
+    blocTest<FeedBloc, FeedState>(
+      'FilterChangedEvent(forYou) failure surfaces error and clears loading',
+      setUp: () {
+        when(() => recommendForUserUseCase.call(params: any(named: 'params')))
+            .thenAnswer(
+          (_) async => DataFailed(NetworkException(message: 'boom')),
+        );
+      },
+      build: buildBloc,
+      act: (bloc) => bloc.add(const FilterChangedEvent(FeedFilter.forYou)),
+      wait: const Duration(milliseconds: 50),
+      verify: (bloc) {
+        expect(bloc.state.isLoadingRecommendations, isFalse);
+        expect(bloc.state.error, isA<NetworkException>());
+      },
+    );
+
+    test('state.items returns recommendations in server order under forYou', () {
+      const a = ArticleEntity(
+        title: 'first',
+        description: 'd',
+        urlToImage: 'https://e.com/a.jpg',
+        publishedAt: '2024-01-01T00:00:00Z',
+      );
+      const b = ArticleEntity(
+        title: 'second',
+        description: 'd',
+        urlToImage: 'https://e.com/b.jpg',
+        publishedAt: '2025-12-31T00:00:00Z', // newer date — but should NOT win
+      );
+
+      final state = FeedState(
+        filter: FeedFilter.forYou,
+        recommendations: const [a, b], // server-ranked: a first, b second
+      );
+
+      final items = state.items;
+      expect(items.map((i) => (i as NewsApiFeedItem).article.title),
+          ['first', 'second']);
     });
   });
 }

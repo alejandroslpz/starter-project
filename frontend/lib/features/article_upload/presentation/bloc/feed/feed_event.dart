@@ -106,3 +106,19 @@ final class SearchFailedEvent extends FeedEvent {
   @override
   List<Object?> get props => [error];
 }
+
+final class RecommendationsLoadedEvent extends FeedEvent {
+  final List<ArticleEntity> articles;
+  const RecommendationsLoadedEvent(this.articles);
+
+  @override
+  List<Object?> get props => [articles];
+}
+
+final class RecommendationsFailedEvent extends FeedEvent {
+  final AppException error;
+  const RecommendationsFailedEvent(this.error);
+
+  @override
+  List<Object?> get props => [error];
+}

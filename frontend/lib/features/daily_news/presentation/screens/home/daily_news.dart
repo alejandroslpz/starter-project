@@ -146,8 +146,19 @@ class _FeedBodyState extends State<_FeedBody> {
             FeedFilterChips(
               filters: FeedFilter.values,
               selected: feedState.filter,
-              onSelected: (f) =>
-                  context.read<FeedBloc>().add(FilterChangedEvent(f)),
+              onSelected: (f) {
+                // For You is auth-gated (anon users don't have meaningful
+                // saves yet). Bounce them through /login the same way the
+                // bookmark FAB does.
+                if (f == FeedFilter.forYou) {
+                  final authState = context.read<AuthBloc>().state;
+                  if (authState is! AuthAuthenticated) {
+                    context.push('/login?return=%2F');
+                    return;
+                  }
+                }
+                context.read<FeedBloc>().add(FilterChangedEvent(f));
+              },
             ),
             const _LastDraftCard(),
             if (feedState.searchFallbackActive)
@@ -175,39 +186,69 @@ class _FeedBodyState extends State<_FeedBody> {
             Expanded(
               child: feedState.isLoading
                   ? const Center(child: CupertinoActivityIndicator())
+                  : feedState.filter == FeedFilter.forYou &&
+                          feedState.isLoadingRecommendations
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const CupertinoActivityIndicator(),
+                              const SizedBox(height: 12),
+                              Text(AppLocalizations.of(context)
+                                  .filterForYouLoading),
+                            ],
+                          ),
+                        )
                   : visibleItems.isEmpty
-                      ? Center(child: Text(AppLocalizations.of(context).feedEmpty))
-                      : NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            if (notification is ScrollUpdateNotification) {
-                              final position = notification.metrics.pixels;
-                              final max =
-                                  notification.metrics.maxScrollExtent;
-                              if (max - position < 200 &&
-                                  !feedState.isLoadingMore &&
-                                  _hasMoreForCurrentFilter(feedState)) {
-                                context
-                                    .read<FeedBloc>()
-                                    .add(const LoadMoreEvent());
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              feedState.filter == FeedFilter.forYou
+                                  ? AppLocalizations.of(context)
+                                      .filterForYouEmpty
+                                  : AppLocalizations.of(context).feedEmpty,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _onRefresh(context, feedState),
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification: (notification) {
+                              if (notification is ScrollUpdateNotification) {
+                                final position = notification.metrics.pixels;
+                                final max =
+                                    notification.metrics.maxScrollExtent;
+                                if (max - position < 200 &&
+                                    !feedState.isLoadingMore &&
+                                    _hasMoreForCurrentFilter(feedState)) {
+                                  context
+                                      .read<FeedBloc>()
+                                      .add(const LoadMoreEvent());
+                                }
                               }
-                            }
-                            return false;
-                          },
-                          child: ListView.builder(
-                            itemCount: visibleItems.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == visibleItems.length) {
-                                return _PaginationFooter(
-                                  isLoadingMore: feedState.isLoadingMore,
-                                  hasMore: _hasMoreForCurrentFilter(feedState),
-                                );
-                              }
-                              final item = visibleItems[index];
-                              return FeedItemCard(
-                                item: item,
-                                onTap: () => _onItemTapped(context, item),
-                              );
+                              return false;
                             },
+                            child: ListView.builder(
+                              physics:
+                                  const AlwaysScrollableScrollPhysics(),
+                              itemCount: visibleItems.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == visibleItems.length) {
+                                  return _PaginationFooter(
+                                    isLoadingMore: feedState.isLoadingMore,
+                                    hasMore:
+                                        _hasMoreForCurrentFilter(feedState),
+                                  );
+                                }
+                                final item = visibleItems[index];
+                                return FeedItemCard(
+                                  item: item,
+                                  onTap: () => _onItemTapped(context, item),
+                                );
+                              },
+                            ),
                           ),
                         ),
             ),
@@ -215,6 +256,18 @@ class _FeedBodyState extends State<_FeedBody> {
         );
       },
     );
+  }
+
+  Future<void> _onRefresh(BuildContext context, FeedState s) {
+    final bloc = context.read<FeedBloc>();
+    if (s.filter == FeedFilter.forYou) {
+      // Re-running the filter handler is what re-fetches recommendations.
+      bloc.add(const FilterChangedEvent(FeedFilter.forYou));
+      return bloc.stream
+          .firstWhere((next) => !next.isLoadingRecommendations);
+    }
+    bloc.add(const LoadFeedEvent());
+    return bloc.stream.firstWhere((next) => !next.isLoading);
   }
 
   bool _hasMoreForCurrentFilter(FeedState s) {
@@ -227,6 +280,8 @@ class _FeedBodyState extends State<_FeedBody> {
         return true;
       case FeedFilter.all:
         return s.hasMoreNews || s.hasMoreFitness;
+      case FeedFilter.forYou:
+        return false;
     }
   }
 

@@ -49,11 +49,20 @@ class SavedArticles extends HookWidget {
         if (state is LocalArticlesLoading) {
           return const Center(child: CupertinoActivityIndicator());
         } else if (state is LocalArticlesDone) {
-          return _SavedArticlesList(articles: state.articles ?? const []);
+          return RefreshIndicator(
+            onRefresh: () => _onRefresh(context),
+            child: _SavedArticlesList(articles: state.articles ?? const []),
+          );
         }
         return const SizedBox.shrink();
       },
     );
+  }
+
+  Future<void> _onRefresh(BuildContext context) {
+    final bloc = context.read<LocalArticleBloc>();
+    bloc.add(const GetSavedArticles());
+    return bloc.stream.firstWhere((s) => s is LocalArticlesDone);
   }
 
   // context.go('/login?return=/saved') replaces the stack; without the
@@ -70,21 +79,28 @@ class _SavedArticlesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (articles.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            AppLocalizations.of(context).savedArticlesEmpty,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-            textAlign: TextAlign.center,
+      // ListView (not Center) so the parent RefreshIndicator can detect
+      // the overscroll gesture even with no items.
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 120),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              AppLocalizations.of(context).savedArticlesEmpty,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+              textAlign: TextAlign.center,
+            ),
           ),
-        ),
+        ],
       );
     }
 
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: articles.length,
       separatorBuilder: (_, __) =>
           const Divider(height: 1, indent: 16, endIndent: 16),

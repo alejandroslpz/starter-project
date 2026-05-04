@@ -14,7 +14,7 @@ import 'package:news_app_clean_architecture/features/article_upload/domain/use_c
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_event.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_state.dart';
-import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/article_edit/article_edit_page.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/screens/article_edit/article_edit_page.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
 import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 

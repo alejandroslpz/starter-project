@@ -10,7 +10,7 @@ import 'package:news_app_clean_architecture/features/article_upload/domain/entit
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_event.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_state.dart';
-import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/my_articles/my_articles_page.dart';
+import 'package:news_app_clean_architecture/features/article_upload/presentation/screens/my_articles/my_articles_page.dart';
 import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockMyArticlesBloc
