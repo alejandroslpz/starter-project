@@ -19,7 +19,7 @@ import 'package:news_app_clean_architecture/features/article_upload/domain/use_c
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_event.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/feed/feed_state.dart';
-import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
+import 'package:news_app_clean_architecture/features/daily_news/presentation/screens/home/daily_news.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
 import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 

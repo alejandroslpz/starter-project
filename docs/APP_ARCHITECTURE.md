@@ -44,7 +44,7 @@ requirements, as explained [below](#clean-folders).
         - screens
         - widgets
 
-Furthermore, the **`test` folder directly mirrors the structure of the `lib` folder** with a {fileName}_test.dart extension on each file for each test.
+Furthermore, the **`test` folder directly mirrors the structure of the `lib` folder** with a `{file_name}_test.dart` extension on each file for each test (Dart filename convention is snake_case).
 
 ## Clean Folders
 All the functionality of our app will follow a clean structure, and when used, the 3 layers
@@ -102,7 +102,7 @@ This is ALWAYS THE CASE, no exceptions
     - Contain blocs and cubits for state management in the UI.
     - Only these components import use cases to fulfill UI logic requirements.
   3. **Widgets**
-    - contain the wigets specific to the respective feature
+    - contain the widgets specific to the respective feature
 
 #### Exceptions
 Apart from this, the data layer, business layer, and presentation layer can have imports from the `core` folder or `shared` folder (respecting the hierarchy; ie: presentation layer can never import from data layer).
