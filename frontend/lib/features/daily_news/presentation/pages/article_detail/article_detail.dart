@@ -83,6 +83,7 @@ class _NewsArticleDetail extends HookWidget {
       create: (_) => sl<LocalArticleBloc>(),
       child: Scaffold(
         appBar: AppBar(
+          title: Text(AppLocalizations.of(context).articleNewsApiTitle),
           leading: Builder(
             builder: (context) => GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -248,6 +249,7 @@ class _CommunityArticleDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text(AppLocalizations.of(context).articleCommunityTitle),
         leading: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () =>

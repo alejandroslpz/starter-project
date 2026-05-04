@@ -64,6 +64,11 @@ import 'features/daily_news/domain/use_cases/is_article_saved.dart';
 import 'features/daily_news/domain/use_cases/remove_article.dart';
 import 'features/daily_news/domain/use_cases/save_article.dart';
 import 'features/daily_news/presentation/bloc/article/local/local_article_bloc.dart';
+import 'package:news_app_clean_architecture/features/recommendations/data/data_sources/remote/recommendation_service.dart';
+import 'package:news_app_clean_architecture/features/recommendations/data/data_sources/remote/recommendation_service_impl.dart';
+import 'package:news_app_clean_architecture/features/recommendations/data/repository/recommendation_repository_impl.dart';
+import 'package:news_app_clean_architecture/features/recommendations/domain/repository/recommendation_repository.dart';
+import 'package:news_app_clean_architecture/features/recommendations/domain/use_cases/recommend_for_user.dart';
 import 'package:news_app_clean_architecture/features/search/domain/use_cases/semantic_search.dart';
 import 'package:news_app_clean_architecture/features/search/domain/repository/search_repository.dart';
 import 'package:news_app_clean_architecture/features/search/data/repository/search_repository_impl.dart';
@@ -312,12 +317,23 @@ Future<void> initializeDependencies() async {
     () => SemanticSearchUseCase(sl<SearchRepository>()),
   );
 
+  sl.registerLazySingleton<RecommendationService>(
+    () => RecommendationServiceImpl(sl<FirebaseFunctions>()),
+  );
+  sl.registerLazySingleton<RecommendationRepository>(
+    () => RecommendationRepositoryImpl(sl<RecommendationService>()),
+  );
+  sl.registerLazySingleton<RecommendForUserUseCase>(
+    () => RecommendForUserUseCase(sl<RecommendationRepository>()),
+  );
+
   sl.registerLazySingleton<FeedBloc>(
     () => FeedBloc(
       sl<GetArticleUseCase>(),
       sl<GetFitnessArticlesUseCase>(),
       sl<WatchCommunityFeedUseCase>(),
       sl<SemanticSearchUseCase>(),
+      sl<RecommendForUserUseCase>(),
     ),
   );
 

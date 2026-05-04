@@ -25,6 +25,13 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
     context.read<MyArticlesBloc>().add(const LoadDraftsEvent());
   }
 
+  Future<void> _onRefresh(BuildContext context) {
+    final bloc = context.read<MyArticlesBloc>();
+    bloc.add(LoadMyArticlesEvent(widget.userId));
+    bloc.add(const LoadDraftsEvent());
+    return bloc.stream.firstWhere((s) => !s.isLoading);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,18 +42,28 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (state.drafts.isEmpty && state.articles.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No articles yet. Tap + on the home feed to publish your first.',
-                  textAlign: TextAlign.center,
-                ),
+            return RefreshIndicator(
+              onRefresh: () => _onRefresh(context),
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 120),
+                  Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'No articles yet. Tap + on the home feed to publish your first.',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             );
           }
-          return CustomScrollView(
-            slivers: [
+          return RefreshIndicator(
+            onRefresh: () => _onRefresh(context),
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
               if (state.drafts.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: Padding(
@@ -99,6 +116,7 @@ class _MyArticlesPageState extends State<MyArticlesPage> {
                 ),
               ],
             ],
+            ),
           );
         },
       ),

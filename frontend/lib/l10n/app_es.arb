@@ -9,6 +9,9 @@
   "homeTitle": "Noticias del día",
 
   "filterAll": "Todo",
+  "filterForYou": "Para ti",
+  "filterForYouEmpty": "Guarda algunos artículos y te recomendaremos más como esos.",
+  "filterForYouLoading": "Buscando recomendaciones…",
   "filterHealth": "Salud",
   "filterNews": "Noticias",
   "filterCommunity": "Comunidad",
@@ -19,6 +22,8 @@
 
   "myArticlesTitle": "Mis artículos",
   "savedArticlesTitle": "Artículos guardados",
+  "articleNewsApiTitle": "Artículo de NewsAPI",
+  "articleCommunityTitle": "Artículo de la comunidad",
   "savedArticlesEmpty": "Aún no hay artículos guardados.",
   "removeAction": "Quitar",
   "articleDetailNotFound": "Artículo no encontrado.",
