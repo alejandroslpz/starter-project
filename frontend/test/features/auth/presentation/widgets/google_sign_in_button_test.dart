@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/google_sign_in_button.dart';
 
-Widget _wrap(Widget child) =>
-    MaterialApp(home: Scaffold(body: child));
+import '../../../../test_helpers/localization_test_helper.dart';
+
+Widget _wrap(Widget child) => wrapWithLocalizations(child);
 
 void main() {
   group('GoogleSignInButton', () {

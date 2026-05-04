@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/auth_validators.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 /// Dialog for password reset — collects email and fires [onConfirm].
 class PasswordResetDialog extends StatefulWidget {
@@ -32,24 +33,25 @@ class _PasswordResetDialogState extends State<PasswordResetDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Reset password'),
+      title: Text(t.authResetPasswordTitle),
       content: TextField(
         controller: _controller,
         keyboardType: TextInputType.emailAddress,
         decoration: InputDecoration(
-          labelText: 'Email',
+          labelText: t.authEmailLabel,
           errorText: _error,
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(t.actionCancel),
         ),
         ElevatedButton(
           onPressed: _onConfirm,
-          child: const Text('Send reset email'),
+          child: Text(t.authResetPasswordSend),
         ),
       ],
     );

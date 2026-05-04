@@ -2,15 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/widgets/password_reset_dialog.dart';
 
+import '../../../../test_helpers/localization_test_helper.dart';
+
 void main() {
   group('PasswordResetDialog', () {
     testWidgets('renders email text field', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PasswordResetDialog(onConfirm: (_) {}),
-          ),
-        ),
+        wrapWithLocalizations(PasswordResetDialog(onConfirm: (_) {})),
       );
 
       expect(find.byType(TextField), findsOneWidget);
@@ -21,11 +19,9 @@ void main() {
       String? capturedEmail;
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: PasswordResetDialog(
-              onConfirm: (email) => capturedEmail = email,
-            ),
+        wrapWithLocalizations(
+          PasswordResetDialog(
+            onConfirm: (email) => capturedEmail = email,
           ),
         ),
       );

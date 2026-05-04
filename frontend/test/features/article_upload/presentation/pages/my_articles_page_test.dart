@@ -11,6 +11,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_event.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_state.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/pages/my_articles/my_articles_page.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockMyArticlesBloc
     extends MockBloc<MyArticlesEvent, MyArticlesState>
@@ -53,6 +54,8 @@ DraftArticleEntity _draft(int id, String title) {
 
 Widget _buildPage(MyArticlesBloc bloc) {
   return MaterialApp(
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
     home: BlocProvider<MyArticlesBloc>.value(
       value: bloc,
       child: const MyArticlesPage(userId: 'user-1'),

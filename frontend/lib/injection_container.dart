@@ -66,6 +66,14 @@ import 'package:news_app_clean_architecture/features/search/data/repository/sear
 import 'package:news_app_clean_architecture/features/search/data/data_sources/remote/article_search_service.dart';
 import 'package:news_app_clean_architecture/features/search/data/data_sources/remote/article_search_service_impl.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:news_app_clean_architecture/features/settings/data/data_sources/local/locale_preferences_service.dart';
+import 'package:news_app_clean_architecture/features/settings/data/data_sources/local/locale_preferences_service_impl.dart';
+import 'package:news_app_clean_architecture/features/settings/data/repository/settings_repository_impl.dart';
+import 'package:news_app_clean_architecture/features/settings/domain/repository/settings_repository.dart';
+import 'package:news_app_clean_architecture/features/settings/domain/use_cases/get_locale_preference.dart';
+import 'package:news_app_clean_architecture/features/settings/domain/use_cases/set_locale_preference.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/bloc/locale/locale_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final sl = GetIt.instance;
 
@@ -311,6 +319,31 @@ Future<void> initializeDependencies() async {
       sl<WatchFavoriteIdsUseCase>(),
       sl<ToggleFavoriteUseCase>(),
       sl<FirebaseAuth>(),
+    ),
+  );
+
+  // -----------------------------------------------------------------------
+  // Settings — locale preferences (per-device, SharedPreferences)
+  // -----------------------------------------------------------------------
+  final sharedPrefs = await SharedPreferences.getInstance();
+  sl.registerSingleton<SharedPreferences>(sharedPrefs);
+
+  sl.registerLazySingleton<LocalePreferencesService>(
+    () => LocalePreferencesServiceImpl(sl<SharedPreferences>()),
+  );
+  sl.registerLazySingleton<SettingsRepository>(
+    () => SettingsRepositoryImpl(sl<LocalePreferencesService>()),
+  );
+  sl.registerLazySingleton<GetLocalePreferenceUseCase>(
+    () => GetLocalePreferenceUseCase(sl<SettingsRepository>()),
+  );
+  sl.registerLazySingleton<SetLocalePreferenceUseCase>(
+    () => SetLocalePreferenceUseCase(sl<SettingsRepository>()),
+  );
+  sl.registerLazySingleton<LocaleBloc>(
+    () => LocaleBloc(
+      sl<GetLocalePreferenceUseCase>(),
+      sl<SetLocalePreferenceUseCase>(),
     ),
   );
 }

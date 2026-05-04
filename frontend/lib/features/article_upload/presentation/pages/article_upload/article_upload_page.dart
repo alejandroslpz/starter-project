@@ -6,6 +6,7 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_state.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/article_upload_form.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/widgets/publishing_overlay.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class ArticleUploadPage extends StatelessWidget {
   const ArticleUploadPage({super.key});
@@ -19,7 +20,7 @@ class ArticleUploadPage extends StatelessWidget {
         if (state.isPublished) {
           context.go('/');
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Published')),
+            SnackBar(content: Text(AppLocalizations.of(context).publishedSnack)),
           );
         }
         if (state.error != null) {
@@ -30,9 +31,10 @@ class ArticleUploadPage extends StatelessWidget {
       },
       child: BlocBuilder<UploadArticleBloc, UploadArticleState>(
         builder: (context, state) {
+          final t = AppLocalizations.of(context);
           return Scaffold(
             appBar: AppBar(
-              title: const Text('New Article'),
+              title: Text(t.newArticleTitle),
               actions: [
                 TextButton(
                   onPressed: state.isPublishing
@@ -40,7 +42,7 @@ class ArticleUploadPage extends StatelessWidget {
                       : () => context
                           .read<UploadArticleBloc>()
                           .add(const SaveDraftManuallyEvent()),
-                  child: const Text('Save Draft'),
+                  child: Text(t.saveDraftAction),
                 ),
               ],
             ),

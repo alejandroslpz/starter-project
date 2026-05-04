@@ -15,6 +15,7 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/entities/
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_state.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 import 'package:news_app_clean_architecture/shared/feed/domain/entities/feed_item.dart';
 import 'package:news_app_clean_architecture/shared/feed/presentation/widgets/feed_item_card.dart';
 
@@ -27,10 +28,11 @@ class DailyNews extends StatelessWidget {
   }
 
   PreferredSizeWidget _buildAppbar(BuildContext context) {
+    final t = AppLocalizations.of(context);
     return AppBar(
-      title: const Text(
-        'Daily News',
-        style: TextStyle(color: Colors.black),
+      title: Text(
+        t.homeTitle,
+        style: const TextStyle(color: Colors.black),
       ),
       actions: [
         const _AccountAction(),
@@ -118,7 +120,7 @@ class _FeedBodyState extends State<_FeedBody> {
                 builder: (context, controller) {
                   return SearchBar(
                     controller: controller,
-                    hintText: 'Search articles...',
+                    hintText: AppLocalizations.of(context).searchHint,
                     leading: const Icon(Icons.search),
                     onChanged: (q) => context
                         .read<FeedBloc>()
@@ -154,7 +156,7 @@ class _FeedBodyState extends State<_FeedBody> {
                 color: Colors.amber.shade100,
                 padding: const EdgeInsets.all(8),
                 child: Text(
-                  'Semantic search unavailable — showing keyword matches.',
+                  AppLocalizations.of(context).semanticSearchUnavailable,
                   style:
                       TextStyle(color: Colors.amber.shade900, fontSize: 12),
                 ),
@@ -174,7 +176,7 @@ class _FeedBodyState extends State<_FeedBody> {
               child: feedState.isLoading
                   ? const Center(child: CupertinoActivityIndicator())
                   : visibleItems.isEmpty
-                      ? const Center(child: Text('No articles found.'))
+                      ? Center(child: Text(AppLocalizations.of(context).feedEmpty))
                       : NotificationListener<ScrollNotification>(
                           onNotification: (notification) {
                             if (notification is ScrollUpdateNotification) {
@@ -413,24 +415,27 @@ class _AuthenticatedMenu extends StatelessWidget {
             context.read<AuthBloc>().add(SignOutEvent());
         }
       },
-      itemBuilder: (context) => [
-        PopupMenuItem<String>(
-          enabled: false,
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+      itemBuilder: (context) {
+        final t = AppLocalizations.of(context);
+        return [
+          PopupMenuItem<String>(
+            enabled: false,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: 'my-articles',
-          child: Text('My Articles'),
-        ),
-        const PopupMenuItem<String>(
-          value: 'signout',
-          child: Text('Sign out'),
-        ),
-      ],
+          const PopupMenuDivider(),
+          PopupMenuItem<String>(
+            value: 'my-articles',
+            child: Text(t.menuMyArticles),
+          ),
+          PopupMenuItem<String>(
+            value: 'signout',
+            child: Text(t.menuSignOut),
+          ),
+        ];
+      },
     );
   }
 }

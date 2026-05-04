@@ -10,6 +10,11 @@ import 'package:news_app_clean_architecture/features/article_upload/presentation
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:news_app_clean_architecture/features/auth/presentation/bloc/auth_event.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
+import 'package:news_app_clean_architecture/features/settings/domain/entities/locale_preference.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/bloc/locale/locale_bloc.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/bloc/locale/locale_event.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/bloc/locale/locale_state.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 import 'config/theme/app_themes.dart';
 import 'features/daily_news/presentation/bloc/article/remote/remote_article_bloc.dart';
 import 'firebase_options.dart';
@@ -64,6 +69,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   late final AuthBloc _authBloc;
+  late final LocaleBloc _localeBloc;
   late final GoRouter _router;
 
   @override
@@ -71,6 +77,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _authBloc = sl<AuthBloc>();
     _authBloc.add(WatchAuthStateEvent());
+    _localeBloc = sl<LocaleBloc>()..add(const LocaleInitialized());
     _router = AppRouter.create(_authBloc);
   }
 
@@ -79,15 +86,31 @@ class _MyAppState extends State<MyApp> {
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
+        BlocProvider<LocaleBloc>.value(value: _localeBloc),
         BlocProvider<RemoteArticlesBloc>(
           create: (context) => sl()..add(const GetArticles()),
         ),
         BlocProvider<FeedBloc>.value(value: sl<FeedBloc>()),
       ],
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        theme: theme(),
-        routerConfig: _router,
+      // Rebuild MaterialApp when the user picks a different language so the
+      // whole tree (including localized strings inside descendants) refreshes
+      // without an app restart.
+      child: BlocBuilder<LocaleBloc, LocaleState>(
+        builder: (context, localeState) {
+          final pref = localeState.preference;
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            theme: theme(),
+            routerConfig: _router,
+            // null `locale` => follow device locale per Flutter convention.
+            locale: pref == LocalePreference.system
+                ? null
+                : Locale(pref.languageCode!),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+          );
+        },
       ),
     );
   }

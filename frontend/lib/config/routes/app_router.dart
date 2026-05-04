@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:news_app_clean_architecture/config/routes/scaffold_with_nav_bar.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/my_articles/my_articles_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_bloc.dart';
 import 'package:news_app_clean_architecture/features/article_upload/presentation/bloc/upload/upload_article_event.dart';
@@ -17,12 +18,16 @@ import 'package:news_app_clean_architecture/features/daily_news/domain/entities/
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/article_detail/article_detail.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/home/daily_news.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/pages/saved_article/saved_article.dart';
+import 'package:news_app_clean_architecture/features/settings/presentation/pages/settings_page.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
 
 /// Creates and configures the app-wide [GoRouter].
 ///
-/// Route table:
+/// Top-level shell (bottom navigation bar):
 ///   /               → DailyNews
+///   /settings       → SettingsPage
+///
+/// Full-screen routes (no bottom nav):
 ///   /article/upload → ArticleUploadPage (auth-required)
 ///   /article/edit/:id → ArticleEditPage (auth-required)
 ///   /my-articles    → MyArticlesPage (auth-required)
@@ -55,9 +60,29 @@ class AppRouter {
         return null;
       },
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const DailyNews(),
+        // Top-level shell with bottom navigation. Each branch keeps its
+        // own Navigator stack so switching tabs preserves scroll/state.
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, navigationShell) =>
+              ScaffoldWithNavBar(navigationShell: navigationShell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (context, state) => const DailyNews(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/settings',
+                  builder: (context, state) => const SettingsPage(),
+                ),
+              ],
+            ),
+          ],
         ),
         GoRoute(
           path: '/article/upload',

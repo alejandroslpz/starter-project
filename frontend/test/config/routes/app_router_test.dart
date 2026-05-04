@@ -18,6 +18,7 @@ import 'package:news_app_clean_architecture/features/daily_news/presentation/blo
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_event.dart';
 import 'package:news_app_clean_architecture/features/daily_news/presentation/bloc/article/remote/remote_article_state.dart';
 import 'package:news_app_clean_architecture/injection_container.dart';
+import 'package:news_app_clean_architecture/l10n/generated/app_localizations.dart';
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState>
     implements AuthBloc {}
@@ -110,7 +111,11 @@ void main() {
             BlocProvider<RemoteArticlesBloc>.value(value: remoteBloc),
             BlocProvider<FeedBloc>.value(value: feedBloc),
           ],
-          child: MaterialApp.router(routerConfig: r),
+          child: MaterialApp.router(
+            routerConfig: r,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       // Settle the redirect + initial frame.
@@ -230,7 +235,11 @@ void main() {
             BlocProvider<FeedBloc>.value(value: feedBloc),
             BlocProvider<RemoteArticlesBloc>.value(value: remoteBloc),
           ],
-          child: MaterialApp.router(routerConfig: r),
+          child: MaterialApp.router(
+            routerConfig: r,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pump();
@@ -287,7 +296,11 @@ void main() {
             BlocProvider<FeedBloc>.value(value: feedBloc),
             BlocProvider<RemoteArticlesBloc>.value(value: remoteBloc),
           ],
-          child: MaterialApp.router(routerConfig: r),
+          child: MaterialApp.router(
+            routerConfig: r,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
         ),
       );
       await tester.pump();
